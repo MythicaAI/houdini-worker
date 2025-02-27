@@ -18,9 +18,6 @@ trap cleanup TERM
 
 PORT=8765
 /run/houdini_worker $PORT &
-sleep 5
-python3 test_client.py --port $PORT &
-python3 test_client.py --port $PORT &
 
 # Keep the script running to maintain the license
 while true; do
