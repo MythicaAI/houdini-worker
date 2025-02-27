@@ -47,3 +47,5 @@ COPY test_cube.hda .
 
 RUN chmod +x run.sh
 RUN cp /worker/build/houdini_worker .
+
+ENTRYPOINT ["/bin/bash", "run.sh"]
