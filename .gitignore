@@ -1,6 +1,7 @@
 .env
 .idea/
 .venv/
+.vscode/
 build/
 cmake-build*/
 scenetalk/build
