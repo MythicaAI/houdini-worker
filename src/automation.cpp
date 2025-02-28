@@ -1,5 +1,5 @@
 #include "automation.h"
-#include "streaming.h"
+#include "stream_writer.h"
 #include "types.h"
 
 #include <OP/OP_Director.h>

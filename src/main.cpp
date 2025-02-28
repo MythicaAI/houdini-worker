@@ -1,8 +1,8 @@
 #include "automation.h"
 #include "interrupt.h"
-#include "mongoose.h"
-#include "streaming.h"
+#include "stream_writer.h"
 #include "types.h"
+#include "websocket.h"
 
 #include <MOT/MOT_Director.h>
 #include <PI/PI_ResourceManager.h>
@@ -11,7 +11,7 @@
 
 static const int COOK_TIMEOUT_SECONDS = 1;
 
-static bool process_message(const std::string& message, MOT_Director* boss, StreamWriter& writer)
+static bool execute_automation(const std::string& message, MOT_Director* boss, StreamWriter& writer)
 {
     CookRequest request;
     if (!util::parse_request(message, request))
@@ -23,50 +23,30 @@ static bool process_message(const std::string& message, MOT_Director* boss, Stre
     return util::cook(boss, request, writer);
 }
 
-struct AppContext
+static void process_message(MOT_Director* boss, const std::string& message, StreamWriter& writer)
 {
-    MOT_Director* boss;
-};
+    std::cout << "Worker: Processing messages" << std::endl;
 
-static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
-{
-    if (ev == MG_EV_HTTP_MSG)
-    {
-        std::cout << "Worker: Received new connection" << std::endl;
-        struct mg_http_message* hm = (struct mg_http_message*)ev_data;
-        mg_ws_upgrade(c, hm, NULL);
-    }
-    else if (ev == MG_EV_WS_MSG)
-    {
-        struct mg_ws_message* wm = (struct mg_ws_message*) ev_data;
-        
-        std::string message(wm->data.buf, wm->data.len);
-        std::cout << "Worker: Received message: " << message << std::endl;
+    // Setup interrupt handler
+    InterruptHandler interruptHandler(writer);
+    UT_Interrupt* interrupt = UTgetInterrupt();
+    interrupt->setInterruptHandler(&interruptHandler);
+    interrupt->setEnabled(true);
+    interruptHandler.start_timeout(COOK_TIMEOUT_SECONDS);
 
-        AppContext* ctx = (AppContext*)c->fn_data;
+    // Execute automation
+    writer.state(AutomationState::Start);
 
-        // Setup interrupt handler
-        StreamWriter writer(c);
-        InterruptHandler interruptHandler(writer);
-        UT_Interrupt* interrupt = UTgetInterrupt();
-        interrupt->setInterruptHandler(&interruptHandler);
-        interrupt->setEnabled(true);
+    bool result = execute_automation(message, boss, writer);
 
-        // Execute automation
-        writer.state(AutomationState::Start);
+    writer.state(AutomationState::End);
+    
+    // Cleanup
+    interrupt->setEnabled(false);
+    interrupt->setInterruptHandler(nullptr);
 
-        bool result = process_message(message, ctx->boss, writer);
-
-        writer.state(AutomationState::End);
-        
-        // Cleanup
-        interrupt->setEnabled(false);
-        interrupt->setInterruptHandler(nullptr);
-
-        util::cleanup_session(ctx->boss);
-    }
+    util::cleanup_session(boss);
 }
-
 
 int theMain(int argc, char *argv[])
 {
@@ -84,22 +64,22 @@ int theMain(int argc, char *argv[])
     PIcreateResourceManager();
 
     // Initialize websocket server
-    struct mg_mgr mgr;
-    mg_mgr_init(&mgr);
-    
-    AppContext ctx = { boss };
+    WebSocket websocket("0.0.0.0", port);
 
-    std::string listen_addr = std::string("ws://0.0.0.0:") + std::to_string(port);
-    mg_http_listen(&mgr, listen_addr.c_str(), fn_ws, &ctx);
-
-    // Event loop
-    std::cout << "Worker: Listening on port " << port << std::endl;
     while (true)
     {
-        mg_mgr_poll(&mgr, 1000);
+        StreamMessage message;
+        if (websocket.try_pop_request(message))
+        {
+            StreamWriter writer(websocket, message.connection_id);
+            process_message(boss, message.message, writer);
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
-    mg_mgr_free(&mgr);
     return 0;
 }
 
