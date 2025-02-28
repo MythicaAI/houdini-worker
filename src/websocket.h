@@ -1,5 +1,7 @@
 #pragma once
 
+#include "mongoose.h"
+
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -39,6 +41,8 @@ public:
     void push_response(const StreamMessage& message);
 
 private:
+    mg_mgr m_mgr;
+
     std::thread m_thread;
     MessageQueue m_queue;
 };

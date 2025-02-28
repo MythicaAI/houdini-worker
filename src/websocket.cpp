@@ -1,7 +1,5 @@
 #include "websocket.h"
 
-#include "mongoose.h"
-
 #include <iostream>
 #include <mutex>
 
@@ -9,6 +7,7 @@ struct WebSocketThreadConfig
 {
     std::string m_url;
     int m_port;
+    mg_mgr& m_mgr;
     MessageQueue& m_queue;
 };
 
@@ -56,11 +55,8 @@ static void websocket_thread(const WebSocketThreadConfig& config)
 {
     WebSocketThreadState state{{}, config.m_queue};
 
-    struct mg_mgr mgr;
-    mg_mgr_init(&mgr);
-
     std::string listen_addr = std::string("ws://") + config.m_url + ":" + std::to_string(config.m_port);
-    mg_http_listen(&mgr, listen_addr.c_str(), fn_ws, &state);
+    mg_http_listen(&config.m_mgr, listen_addr.c_str(), fn_ws, &state);
 
     while (true)
     {
@@ -78,10 +74,8 @@ static void websocket_thread(const WebSocketThreadConfig& config)
             }
         }
 
-        mg_mgr_poll(&mgr, 10);
+        mg_mgr_poll(&config.m_mgr, 1000);
     }
-
-    mg_mgr_free(&mgr);
 }
 
 void MessageQueue::push_request(const StreamMessage& message)
@@ -127,13 +121,18 @@ bool MessageQueue::try_pop_response(StreamMessage& message)
 
 WebSocket::WebSocket(const std::string& url, int port)
 {
-    WebSocketThreadConfig config = { url, port, m_queue };
+    mg_mgr_init(&m_mgr);
+    mg_wakeup_init(&m_mgr);
+
+    WebSocketThreadConfig config = { url, port, m_mgr, m_queue };
     m_thread = std::thread([config]{ websocket_thread(config); });
 }
 
 WebSocket::~WebSocket()
 {
     m_thread.join();
+
+    mg_mgr_free(&m_mgr);
 }
 
 bool WebSocket::try_pop_request(StreamMessage& message, int timeout_ms)
@@ -144,4 +143,5 @@ bool WebSocket::try_pop_request(StreamMessage& message, int timeout_ms)
 void WebSocket::push_response(const StreamMessage& message)
 {
     m_queue.push_response(message);
+    mg_wakeup(&m_mgr, message.connection_id, "wake", 4);
 }
