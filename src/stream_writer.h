@@ -1,5 +1,7 @@
 #pragma once
 
+#include "websocket.h"
+
 #include <string>
 
 enum class AutomationState
@@ -11,7 +13,9 @@ enum class AutomationState
 class StreamWriter
 {
 public:
-    StreamWriter(struct mg_connection* conn) : m_conn(conn) {}
+    StreamWriter(WebSocket& websocket, int connection_id) 
+        : m_websocket(websocket), m_connection_id(connection_id) 
+    {}
 
     void state(AutomationState state);
     void status(const std::string& message);
@@ -21,5 +25,6 @@ public:
 private:
     void writeToStream(const std::string& op, const std::string& data);
 
-    struct mg_connection* m_conn;
+    WebSocket& m_websocket;
+    int m_connection_id;
 };

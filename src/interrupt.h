@@ -1,6 +1,6 @@
 #pragma once
 
-#include "streaming.h"
+#include "stream_writer.h"
 
 #include <UT/UT_Interrupt.h>
 #include <chrono>
