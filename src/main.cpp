@@ -69,14 +69,10 @@ int theMain(int argc, char *argv[])
     while (true)
     {
         StreamMessage message;
-        if (websocket.try_pop_request(message))
+        if (websocket.try_pop_request(message, 1000))
         {
             StreamWriter writer(websocket, message.connection_id);
             process_message(boss, message.message, writer);
-        }
-        else
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
 
