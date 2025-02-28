@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <mutex>
+#include <condition_variable>
 
 struct WebSocketThreadConfig
 {
@@ -86,8 +87,11 @@ static void websocket_thread(const WebSocketThreadConfig& config)
 
 void MessageQueue::push_request(const StreamMessage& message)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_requests.push(message);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_requests.push(message);
+    }
+    m_request_cv.notify_one();
 }
 
 void MessageQueue::push_response(const StreamMessage& message)
@@ -96,12 +100,16 @@ void MessageQueue::push_response(const StreamMessage& message)
     m_responses.push(message);
 }
 
-bool MessageQueue::try_pop_request(StreamMessage& message)
+bool MessageQueue::try_pop_request(StreamMessage& message, int timeout_ms)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_requests.empty())
-        return false;
+    std::unique_lock<std::mutex> lock(m_mutex);
 
+    auto has_request = [this] { return !m_requests.empty(); };
+    if (!m_request_cv.wait_for(lock, std::chrono::milliseconds(timeout_ms), has_request))
+    {
+        return false;
+    }
+    
     message = m_requests.front();
     m_requests.pop();
     return true;
@@ -129,9 +137,9 @@ WebSocket::~WebSocket()
     m_thread.join();
 }
 
-bool WebSocket::try_pop_request(StreamMessage& message)
+bool WebSocket::try_pop_request(StreamMessage& message, int timeout_ms)
 {
-    return m_queue.try_pop_request(message);
+    return m_queue.try_pop_request(message, timeout_ms);
 }
 
 void WebSocket::push_response(const StreamMessage& message)
