@@ -10,8 +10,14 @@ target_include_directories(mongoose PUBLIC
     third_party/mongoose
 )
 
-# Houdini library
-set(CMAKE_PREFIX_PATH $ENV{HFS}/toolkit/cmake)
+# Setup the path for houdini toolkit (cmake support)
+if(APPLE)
+    # Use specific path for macOS builds
+    set(Houdini_DIR "/Applications/Houdini/Houdini20.5.410/Frameworks/Houdini.framework/Versions/20.5/Resources/toolkit/cmake")
+else()
+    # For non-macOS platforms, use the HFS environment variable
+    set(Houdini_DIR "$ENV{HFS}/toolkit/cmake")
+endif()
 
 find_package(Houdini REQUIRED)
 
@@ -28,4 +34,6 @@ target_link_libraries(${executable_name}
 )
 
 # Configure target properties
-houdini_configure_target(${executable_name}) 
+houdini_configure_target(${executable_name})
+
+add_subdirectory("src/scenetalk")
