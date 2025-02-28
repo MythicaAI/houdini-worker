@@ -6,4 +6,12 @@ project(houdini_worker)
 file(GLOB SOURCES "*.cpp")
 set(executable_name scenetalk-ex)
 include_directories("../../third_party")
-add_executable(${executable_name} ${SOURCES})
+add_executable(${executable_name} ${SOURCES}
+        net_buffer.h
+        encoder.h
+        encoder.cpp
+        example.cpp
+        file_ref.h
+        file_ref.cpp)
+
+add_subdirectory(tests)

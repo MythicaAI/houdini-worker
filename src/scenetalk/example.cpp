@@ -1,6 +1,12 @@
-#include "net_buffer.hpp"
+#include "net_buffer.h"
+#include "encoder.h"
+#include "file_ref.h"
 #include <iostream>
 #include <iomanip>
+
+
+#include <vector>
+#include <string>
 
 // Helper function to create a simple test frame with CBOR encoded payload
 std::vector<uint8_t> createTestFrame(char frameType, bool partial, const json& payload) {
@@ -33,7 +39,7 @@ void printBytes(const std::vector<uint8_t>& data) {
     std::cout << std::dec << std::endl;
 }
 
-int main() {
+void example_netbuffer() {
     NetBuffer buffer;
     
     // Create some test frames
@@ -114,6 +120,69 @@ int main() {
     });
     
     std::cout << "Buffer should be empty now!" << std::endl;
-    
-    return 0;
+}
+
+// Helper function to print byte vectors in hex format
+void print_bytes(const std::vector<uint8_t>& bytes) {
+    for (uint8_t b : bytes) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b) << " ";
+    }
+    std::cout << std::dec << std::endl;
+}
+
+void example_encoder() {
+    // Create an encoder instance
+    Encoder encoder;
+
+    // Example: Create a BEGIN frame
+    std::cout << "BEGIN frame example:" << std::endl;
+    auto begin_frames = encoder.begin("test_entity", "test_name", 1);
+
+    for (const auto& frame : begin_frames) {
+        print_bytes(frame);
+    }
+    std::cout << std::endl;
+
+    // Example: Create an END frame
+    std::cout << "END frame example:" << std::endl;
+    auto end_frames = encoder.end(1);
+
+    for (const auto& frame : end_frames) {
+        print_bytes(frame);
+    }
+    std::cout << std::endl;
+
+    // Example: Create an attribute frame
+    std::cout << "ATTRIBUTE frame example:" << std::endl;
+    json value = {{"key1", "value1"}, {"key2", 42}};
+    auto attr_frames = encoder.attr("test_attr", "object", value);
+
+    for (const auto& frame : attr_frames) {
+        print_bytes(frame);
+    }
+    std::cout << std::endl;
+
+    // Example: Create a file reference frame
+    std::cout << "FILE frame example:" << std::endl;
+    FileRef file_ref("file123", "test.txt", "text/plain", 1024);
+    auto file_frames = encoder.file(file_ref);
+
+    for (const auto& frame : file_frames) {
+        print_bytes(frame);
+    }
+    std::cout << std::endl;
+
+    // Example: Create a hello frame
+    std::cout << "HELLO frame example:" << std::endl;
+    auto hello_frames = encoder.hello("test_client", "auth_token_123");
+
+    for (const auto& frame : hello_frames) {
+        print_bytes(frame);
+    }
+
+}
+
+int main() {
+    example_netbuffer();
+    example_encoder();
 }
