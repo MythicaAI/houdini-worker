@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <iostream>
 
+#include <GEO/GEO_Primitive.h>
+
 namespace util
 {
 
@@ -127,6 +129,54 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
     }
 }
 
+bool export_geometry(const GU_Detail* gdp, Geometry& geom)
+{
+    GA_ROHandleV3 P_handle(gdp, GA_ATTRIB_POINT, "P");
+    if (!P_handle.isValid())
+    {
+        return false;
+    }
+
+    int primIndex = 0;
+    const GEO_Primitive* prim;
+	GA_FOR_ALL_PRIMITIVES(gdp, prim)
+	{
+        if (prim->getTypeId() != GA_PRIMPOLY)
+        {
+		    continue;
+        }
+	    
+	    GA_Range pt_range = prim->getPointRange();
+        GA_Size numPoints = pt_range.getEntries();
+        if (numPoints != 4)
+        {
+            continue;
+        }
+
+        for (GA_Iterator pt_it(pt_range); !pt_it.atEnd(); ++pt_it)
+        {
+            GA_Offset ptOff = *pt_it;
+
+            UT_Vector3 pos = P_handle.get(ptOff);
+            geom.points.push_back(pos.x());
+            geom.points.push_back(pos.y());
+            geom.points.push_back(pos.z());
+        }
+
+        int baseIndex = primIndex * 4;
+        geom.indices.push_back(0 + baseIndex);
+        geom.indices.push_back(1 + baseIndex);
+        geom.indices.push_back(2 + baseIndex);
+        geom.indices.push_back(0 + baseIndex);
+        geom.indices.push_back(2 + baseIndex);
+        geom.indices.push_back(3 + baseIndex);
+
+        primIndex++;
+	}
+
+    return geom.points.size() > 0;
+}
+
 bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
 {
     const char* output_file = "output.bgeo";
@@ -225,15 +275,16 @@ bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
         writer.error("Failed to get cooked geometry");
         return false;
     }
-
-    // Save to bgeo
-    if (!gdp->save(output_file, nullptr))
+    
+    Geometry geo;
+    if (!export_geometry(gdp, geo))
     {
-        writer.error("Failed to save bgeo file");
+        writer.error("Failed to export geometry");
         return false;
     }
 
-    writer.file(output_file);
+    writer.geometry(geo);
+
     return true;
 }
 

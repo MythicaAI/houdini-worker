@@ -23,6 +23,11 @@ void StreamWriter::file(const std::string& path)
     writeToStream("file", path);
 }
 
+void StreamWriter::geometry(const Geometry& geometry)
+{
+    writeToStream("geometry", "TODO");
+}
+
 void StreamWriter::writeToStream(const std::string& op, const std::string& data)
 {
     std::cout << "Worker: Sending response: " << op << " " << data << std::endl;
