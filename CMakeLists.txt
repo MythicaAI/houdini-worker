@@ -25,7 +25,8 @@ find_package(Houdini REQUIRED)
 file(GLOB SOURCES "src/*.cpp")
 
 set(executable_name houdini_worker)
-add_executable(${executable_name} ${SOURCES})
+add_executable(${executable_name} ${SOURCES}
+        third_party/utest/utest.h)
 
 target_link_libraries(${executable_name} 
     Houdini 
