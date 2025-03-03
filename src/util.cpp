@@ -4,13 +4,15 @@
 
 namespace util
 {
-    Logger::Logger()
-    {
-        std::cout << "Worker[" << getpid() << "]: ";
-    }
 
-    Logger log()
-    {
-        return Logger();
-    }
+Logger::Logger()
+{
+    std::cout << "Worker[" << getpid() << "]: ";
+}
+
+Logger log()
+{
+    return Logger();
+}
+
 }

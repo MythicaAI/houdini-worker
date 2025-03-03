@@ -1,5 +1,5 @@
-#include "websocket.h"
 #include "util.h"
+#include "websocket.h"
 
 #include <iostream>
 #include <mutex>
