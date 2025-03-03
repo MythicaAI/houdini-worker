@@ -138,14 +138,14 @@ bool export_geometry(const GU_Detail* gdp, Geometry& geom)
 
     int primIndex = 0;
     const GEO_Primitive* prim;
-	GA_FOR_ALL_PRIMITIVES(gdp, prim)
-	{
+    GA_FOR_ALL_PRIMITIVES(gdp, prim)
+    {
         if (prim->getTypeId() != GA_PRIMPOLY)
         {
-		    continue;
+           continue;
         }
-	    
-	    GA_Range pt_range = prim->getPointRange();
+
+        GA_Range pt_range = prim->getPointRange();
         GA_Size numPoints = pt_range.getEntries();
         if (numPoints != 4)
         {
@@ -171,7 +171,7 @@ bool export_geometry(const GU_Detail* gdp, Geometry& geom)
         geom.indices.push_back(3 + baseIndex);
 
         primIndex++;
-	}
+    }
 
     return geom.points.size() > 0;
 }
