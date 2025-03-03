@@ -2,6 +2,7 @@
 #include "interrupt.h"
 #include "stream_writer.h"
 #include "types.h"
+#include "util.h"
 #include "websocket.h"
 
 #include <MOT/MOT_Director.h>
@@ -25,7 +26,7 @@ static bool execute_automation(const std::string& message, MOT_Director* boss, S
 
 static void process_message(MOT_Director* boss, const std::string& message, StreamWriter& writer)
 {
-    std::cout << "Worker: Processing messages" << std::endl;
+    util::log() << "Processing messages" << std::endl;
 
     // Setup interrupt handler
     InterruptHandler interruptHandler(writer);
@@ -52,7 +53,7 @@ int theMain(int argc, char *argv[])
 {
     if (argc != 2)
     {
-        std::cerr << "Usage: " << argv[0] << " <port>\n";
+        util::log() << "Usage: " << argv[0] << " <port>\n";
         return 1;
     }
 

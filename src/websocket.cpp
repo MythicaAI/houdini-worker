@@ -1,3 +1,4 @@
+#include "util.h"
 #include "websocket.h"
 
 #include <iostream>
@@ -23,7 +24,7 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 
     if (ev == MG_EV_OPEN)
     {
-        std::cout << "Worker: Connection opened " << c->id << std::endl;
+        util::log() << "Connection opened " << c->id << std::endl;
         state->connection_map[c->id] = c;
     }
     else if (ev == MG_EV_HTTP_MSG)
@@ -36,7 +37,7 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
         struct mg_ws_message* wm = (struct mg_ws_message*) ev_data;
         
         std::string message(wm->data.buf, wm->data.len);
-        std::cout << "Worker: Received message: " << message << std::endl;
+        util::log() << "Received message: " << message << std::endl;
 
         StreamMessage msg;
         msg.connection_id = c->id;
@@ -46,7 +47,7 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
     }
     else if (ev == MG_EV_CLOSE)
     {
-        std::cout << "Worker: Connection closed " << c->id << std::endl;
+        util::log() << "Connection closed " << c->id << std::endl;
         state->connection_map.erase(c->id);
     }
 }
@@ -70,7 +71,7 @@ static void websocket_thread(const WebSocketThreadConfig& config)
             }
             else
             {
-                std::cout << "Worker: Response for unknown connection " << response.connection_id << std::endl;
+                util::log() << "Response for unknown connection " << response.connection_id << std::endl;
             }
         }
 

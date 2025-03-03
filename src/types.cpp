@@ -1,4 +1,5 @@
 #include "types.h"
+#include "util.h"
 
 #include <UT/UT_JSONValue.h>
 #include <iostream>
@@ -13,21 +14,21 @@ bool parse_request(const std::string& message, CookRequest& request)
     UT_JSONValue root;
     if (!root.parseValue(message) || !root.isMap())
     {
-        std::cerr << "Worker: Failed to parse JSON message" << std::endl;
+        util::log() << "Failed to parse JSON message" << std::endl;
         return false;
     }
 
     const UT_JSONValue* op = root.get("op");
     if (!op || op->getType() != UT_JSONValue::JSON_STRING || op->getString().toStdString() != "cook")
     {
-        std::cerr << "Worker: Operation is not cook" << std::endl;
+        util::log() << "Operation is not cook" << std::endl;
         return false;
     }
 
     const UT_JSONValue* data = root.get("data");
     if (!data || data->getType() != UT_JSONValue::JSON_MAP)
     {
-        std::cerr << "Worker: Data is not a map" << std::endl;
+        util::log() << "Data is not a map" << std::endl;
         return false;
     }
 
@@ -54,7 +55,7 @@ bool parse_request(const std::string& message, CookRequest& request)
                 if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING || 
                     !file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
                 {
-                    std::cerr << "Worker: Failed to parse file parameter: " << key.toStdString() << std::endl;
+                    util::log() << "Failed to parse file parameter: " << key.toStdString() << std::endl;
                     break;
                 }
 
@@ -73,14 +74,14 @@ bool parse_request(const std::string& message, CookRequest& request)
     auto hda_path_iter = paramSet.find("hda_path");
     if (hda_path_iter == paramSet.end() || !std::holds_alternative<FileParameter>(hda_path_iter->second))
     {
-        std::cerr << "Worker: Request missing required field: hda_path" << std::endl;
+        util::log() << "Request missing required field: hda_path" << std::endl;
         return false;
     }
 
     auto definition_index_iter = paramSet.find("definition_index");
     if (definition_index_iter == paramSet.end() || !std::holds_alternative<int64_t>(definition_index_iter->second))
     {
-        std::cerr << "Worker: Request missing required field: definition_index" << std::endl;
+        util::log() << "Request missing required field: definition_index" << std::endl;
         return false;
     }
 
@@ -104,7 +105,7 @@ bool parse_request(const std::string& message, CookRequest& request)
 
         if (!std::holds_alternative<FileParameter>(iter->second))
         {
-            std::cerr << "Worker: Input parameter is not a file parameter: " << iter->first << std::endl;
+            util::log() << "Input parameter is not a file parameter: " << iter->first << std::endl;
             ++iter;
             continue;
         }
@@ -115,12 +116,6 @@ bool parse_request(const std::string& message, CookRequest& request)
     }
 
     request.parameters = paramSet;
-
-    std::cerr << "Worker: Parsed cook request " 
-              << "HDA: " << request.hda_file << " " 
-              << "Definition index: " << request.definition_index << " "
-              << "Inputs: " << request.inputs.size() << " "
-              << "Parameters: " << request.parameters.size() << std::endl;
 
     return true;
 }
