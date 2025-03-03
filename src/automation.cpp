@@ -135,7 +135,6 @@ bool export_geometry(const GU_Detail* gdp, Geometry& geom)
     GA_ROHandleV3 UV_handle(gdp, GA_ATTRIB_VERTEX, "uv");
     if (!P_handle.isValid())
     {
-        std::cerr << "Missing point attribute\n";
         return false;
     }
 
