@@ -4,13 +4,12 @@
 
 #include <OP/OP_Director.h>
 #include <OP/OP_OTLLibrary.h>
+#include <GEO/GEO_Primitive.h>
 #include <GU/GU_Detail.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
 #include <filesystem>
 #include <iostream>
-
-#include <GEO/GEO_Primitive.h>
 
 namespace util
 {
