@@ -6,6 +6,12 @@
 #include <variant>
 #include <vector>
 
+struct Geometry
+{
+    std::vector<float> points;
+    std::vector<int> indices;
+};
+
 struct FileParameter
 {
     std::string file_id;

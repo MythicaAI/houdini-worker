@@ -1,5 +1,6 @@
 #pragma once
 
+#include "types.h"
 #include "websocket.h"
 
 #include <string>
@@ -21,6 +22,7 @@ public:
     void status(const std::string& message);
     void error(const std::string& message);
     void file(const std::string& path);
+    void geometry(const Geometry& geometry);
 
 private:
     void writeToStream(const std::string& op, const std::string& data);
