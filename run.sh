@@ -17,7 +17,6 @@ cleanup() {
     kill $WORKER_PID
     hserver -Q
     echo "Finished cleanup."
-    exit 0
 }
 
 trap cleanup TERM INT
