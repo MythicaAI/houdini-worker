@@ -9,6 +9,8 @@
 struct Geometry
 {
     std::vector<float> points;
+    std::vector<float> normals;
+    std::vector<float> uvs;
     std::vector<int> indices;
 };
 

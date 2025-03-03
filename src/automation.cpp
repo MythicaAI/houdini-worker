@@ -131,6 +131,8 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
 bool export_geometry(const GU_Detail* gdp, Geometry& geom)
 {
     GA_ROHandleV3 P_handle(gdp, GA_ATTRIB_POINT, "P");
+    GA_ROHandleV3 N_handle(gdp, GA_ATTRIB_POINT, "N");
+    GA_ROHandleV3 UV_handle(gdp, GA_ATTRIB_VERTEX, "uv");
     if (!P_handle.isValid())
     {
         return false;
@@ -160,6 +162,21 @@ bool export_geometry(const GU_Detail* gdp, Geometry& geom)
             geom.points.push_back(pos.x());
             geom.points.push_back(pos.y());
             geom.points.push_back(pos.z());
+
+            if (N_handle.isValid())
+            {
+                UT_Vector3 norm = N_handle.get(ptOff);
+                geom.normals.push_back(norm.x());
+                geom.normals.push_back(norm.y());
+                geom.normals.push_back(norm.z());
+            }
+
+            if (UV_handle.isValid())
+            {
+                UT_Vector3 uv = UV_handle.get(ptOff);
+                geom.uvs.push_back(uv.x());
+                geom.uvs.push_back(uv.y());
+            }
         }
 
         int baseIndex = primIndex * 4;

@@ -34,6 +34,30 @@ void StreamWriter::geometry(const Geometry& geometry)
             json += ",";
         }
     }
+    if (geometry.normals.size() > 0)
+    {
+        json += "],\"normals\":[";
+        for (size_t i = 0; i < geometry.normals.size(); i++)
+        {
+            json += std::to_string(geometry.normals[i]);
+            if (i < geometry.normals.size() - 1)
+            {
+                json += ",";
+            }
+        }
+    }
+    if (geometry.uvs.size() > 0)
+    {
+        json += "],\"uvs\":[";
+        for (size_t i = 0; i < geometry.uvs.size(); i++)
+        {
+            json += std::to_string(geometry.uvs[i]);
+            if (i < geometry.uvs.size() - 1)
+            {
+                json += ",";
+            }
+        }
+    }
     json += "],\"indices\":[";
     for (size_t i = 0; i < geometry.indices.size(); i++)
     {
