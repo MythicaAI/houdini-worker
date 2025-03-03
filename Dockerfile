@@ -41,9 +41,7 @@ RUN mkdir -p /run
 WORKDIR /run
 
 COPY run.sh .
-COPY test_client.py .
-COPY cube.usdz .
-COPY test_cube.hda .
+COPY assets/ assets/
 
 RUN chmod +x run.sh
 RUN cp /worker/build/houdini_worker .
