@@ -1,5 +1,6 @@
 #include "automation.h"
 #include "interrupt.h"
+#include "file_cache.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
@@ -12,19 +13,29 @@
 
 static const int COOK_TIMEOUT_SECONDS = 1;
 
-static bool execute_automation(const std::string& message, MOT_Director* boss, StreamWriter& writer)
+static bool execute_automation(const std::string& message, MOT_Director* boss, FileCache& file_cache, StreamWriter& writer)
 {
-    CookRequest request;
-    if (!util::parse_request(message, request))
+    WorkerRequest request;
+    if (!util::parse_request(message, request, file_cache, writer))
     {
         writer.error("Failed to parse request");
         return false;
     }
 
-    return util::cook(boss, request, writer);
+    if (std::holds_alternative<CookRequest>(request))
+    {
+        return util::cook(boss, std::get<CookRequest>(request), writer);
+    }
+    else if (std::holds_alternative<FileUploadRequest>(request))
+    {
+        FileUploadRequest file_upload_req = std::get<FileUploadRequest>(request);
+        return file_cache.add_file(file_upload_req.file_path, file_upload_req.content_base64);
+    }
+
+    return false;
 }
 
-static void process_message(MOT_Director* boss, const std::string& message, StreamWriter& writer)
+static void process_message(MOT_Director* boss, FileCache& file_cache, const std::string& message, StreamWriter& writer)
 {
     util::log() << "Processing messages" << std::endl;
 
@@ -38,10 +49,10 @@ static void process_message(MOT_Director* boss, const std::string& message, Stre
     // Execute automation
     writer.state(AutomationState::Start);
 
-    bool result = execute_automation(message, boss, writer);
+    bool result = execute_automation(message, boss, file_cache, writer);
 
     writer.state(AutomationState::End);
-    
+
     // Cleanup
     interrupt->setEnabled(false);
     interrupt->setInterruptHandler(nullptr);
@@ -58,11 +69,13 @@ int theMain(int argc, char *argv[])
     }
 
     const int port = std::stoi(argv[1]);
-    
+
     // Initialize Houdini
     MOT_Director* boss = new MOT_Director("standalone");
     OPsetDirector(boss);
     PIcreateResourceManager();
+
+    FileCache file_cache;
 
     // Initialize websocket server
     WebSocket websocket("0.0.0.0", port);
@@ -73,7 +86,7 @@ int theMain(int argc, char *argv[])
         if (websocket.try_pop_request(message, 1000))
         {
             StreamWriter writer(websocket, message.connection_id);
-            process_message(boss, message.message, writer);
+            process_message(boss, file_cache, message.message, writer);
         }
     }
 

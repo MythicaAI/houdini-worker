@@ -1,6 +1,7 @@
-#include "mongoose.h"
 #include "stream_writer.h"
+#include "types.h"
 #include "util.h"
+#include "websocket.h"
 
 #include <iostream>
 
@@ -62,7 +63,7 @@ void StreamWriter::geometry(const Geometry& geometry)
     json += "],\"indices\":[";
     for (size_t i = 0; i < geometry.indices.size(); i++)
     {
-        json += std::to_string(geometry.indices[i]); 
+        json += std::to_string(geometry.indices[i]);
         if (i < geometry.indices.size() - 1)
         {
             json += ",";

@@ -6,6 +6,9 @@
 #include <variant>
 #include <vector>
 
+class FileCache;
+class StreamWriter;
+
 struct Geometry
 {
     std::vector<float> points;
@@ -41,7 +44,15 @@ struct CookRequest
     ParameterSet parameters;
 };
 
+struct FileUploadRequest
+{
+    std::string file_path;
+    std::string content_base64;
+};
+
+using WorkerRequest = std::variant<CookRequest, FileUploadRequest>;
+
 namespace util
 {
-    bool parse_request(const std::string& message, CookRequest& request);
+    bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache, StreamWriter& writer);
 }
