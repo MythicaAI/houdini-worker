@@ -1,195 +1,95 @@
 #pragma once
 
-#include <variant>
-#include <vector>
-#include <string>
-#include <optional>
-#include <functional>
-#include <memory>
-#include <stdexcept>
 #include <cstdint>
-#include <span>
-#include <tuple>
-#include <nlohmann/json.hpp>
+#include <memory>
+#include <functional>
+#include "frame.h"
+#include "buffer_pool.h"
 
-// Define constants
-constexpr size_t HEADER_SIZE = 4;  // 1 byte type + 1 byte flags + 2 bytes length
-constexpr uint16_t MAX_PAYLOAD_SIZE = std::numeric_limits<uint16_t>::max() - HEADER_SIZE;  // 64KB max payload size
-constexpr uint8_t FLAG_PARTIAL = 1;
-
-// Using nlohmann json with CBOR support
-using json = nlohmann::json;
-
-// Callback type for async operations
-using FlushWebSocketCallback = std::function<void(std::span<const uint8_t>)>;
+namespace scene_talk {
 
 /**
- * @brief Represents a validated frame header
+ * @brief Callback type for frame handling
  */
-class FrameHeader {
-public:
-    FrameHeader(uint8_t frameType, uint8_t flags, uint16_t payloadLength)
-        : frameType(frameType), flags(flags), payloadLength(payloadLength) {}
-
-    // Getter methods
-    uint8_t getFrameType() const { return frameType; }
-    uint8_t getFlags() const { return flags; }
-    uint16_t getPayloadLength() const { return payloadLength; }
-
-    // Check if the frame is partial
-    bool isPartial() const { return (flags & FLAG_PARTIAL) == FLAG_PARTIAL; }
-
-    // Get total frame length including header
-    size_t getTotalLength() const { return payloadLength + HEADER_SIZE; }
-
-    // Debug representation
-    std::string toString() const {
-        return "FrameHeader(type=" + std::string(1, static_cast<char>(frameType)) + 
-               ", length=" + std::to_string(payloadLength) + ")";
-    }
-
-private:
-    uint8_t frameType;  // ASCII character code
-    uint8_t flags;
-    uint16_t payloadLength;
-};
+using frame_handler = std::function<void(const frame&)>;
 
 /**
- * @brief Efficiently accumulates bytes from a WebSocket stream
- * and extracts complete JSON frames with security validations.
+ * @brief Handles network data and assembles it into frames
  */
-class NetBuffer {
+class net_buffer {
 public:
-    NetBuffer() = default;
+    /**
+     * @brief Create a net_buffer
+     *
+     * @param pool Buffer pool for allocations
+     * @param handler Callback function for complete frames
+     * @param max_frame_size Maximum allowed frame size
+     */
+    net_buffer(std::shared_ptr<buffer_pool> pool,
+               frame_handler handler,
+               size_t max_frame_size = MAX_PAYLOAD_SIZE);
 
-    // Add data from a container
-    template<typename Container>
-    void appendFrom(const Container& container) {
-        buffer.insert(buffer.end(), container.begin(), container.end());
-    }
+    /**
+     * @brief Process incoming network data
+     *
+     * @param data Pointer to data buffer
+     * @param size Size of data
+     * @return Number of bytes processed
+     */
+    size_t append(const uint8_t* data, size_t size);
 
-    // Add raw bytes
-    void appendBytes(const uint8_t* data, size_t length) {
-        buffer.insert(buffer.end(), data, data + length);
-    }
+    /**
+     * @brief Check if we're in the middle of processing a frame
+     */
+    [[nodiscard]] bool in_payload() const { return state_ != state::header; }
 
-    void appendBytes(const std::string& data) {
-        buffer.insert(buffer.end(), data.begin(), data.end());
-    }
-
-    // Process the buffer and extract frames
-    std::vector<std::tuple<FrameHeader, std::variant<json, std::vector<uint8_t>>>> readFrames() {
-        std::vector<std::tuple<FrameHeader, std::variant<json, std::vector<uint8_t>>>> frames;
-        
-        size_t offset = 0;
-        
-        while (offset + HEADER_SIZE <= buffer.size()) {
-            try {
-                // Try to decode header
-                auto headerOpt = maybeFrameHeader(std::span<const uint8_t>(buffer.data() + offset, buffer.size() - offset));
-                if (!headerOpt) {
-                    break;  // Incomplete header, wait for more data
-                }
-                
-                const auto& header = *headerOpt;
-                
-                // Check if we have enough data for the payload
-                if (offset + HEADER_SIZE + header.getPayloadLength() > buffer.size()) {
-                    break;  // Incomplete payload, wait for more data
-                }
-                
-                if (header.isPartial()) {
-                    // For partial frames, just extract the raw bytes
-                    std::vector<uint8_t> partialPayload(
-                        buffer.begin() + offset + HEADER_SIZE,
-                        buffer.begin() + offset + HEADER_SIZE + header.getPayloadLength()
-                    );
-                    frames.emplace_back(header, partialPayload);
-                } else {
-                    // For complete frames, decode JSON
-                    auto payloadOpt = maybeFramePayload(
-                        std::span<const uint8_t>(
-                            buffer.data() + offset + HEADER_SIZE,
-                            header.getPayloadLength()
-                        ),
-                        header
-                    );
-                    
-                    if (!payloadOpt) {
-                        break;  // Couldn't decode payload, wait for more data
-                    }
-                    
-                    frames.emplace_back(header, *payloadOpt);
-                }
-                
-                // Move offset past this frame
-                offset += header.getTotalLength();
-                
-            } catch (const std::exception& e) {
-                // Clear buffer on protocol errors
-                buffer.clear();
-                throw;
-            }
-        }
-        
-        // Keep unprocessed bytes
-        if (offset > 0) {
-            buffer.erase(buffer.begin(), buffer.begin() + offset);
-        }
-        
-        return frames;
-    }
-
-    // Async flush operation
-    void flush(const FlushWebSocketCallback& callback) {
-        try {
-            callback(std::span<const uint8_t>(buffer.data(), buffer.size()));
-        } catch (...) {
-            // Ensure buffer is cleared even if callback throws
-        }
-        buffer.clear();
-    }
+    /**
+     * @brief Reset internal state
+     */
+    void reset();
 
 private:
-    std::vector<uint8_t> buffer;
+    // Processing state
+    enum class state {
+        header,     // Waiting for header
+        payload     // Waiting for payload
+    };
 
-    // Try to decode a frame header
-    std::optional<FrameHeader> maybeFrameHeader(std::span<const uint8_t> data) {
-        if (data.size() < HEADER_SIZE) {
-            return std::nullopt;
-        }
+    // Process data in header state
+    size_t process_header_state(const uint8_t* data, size_t size);
 
-        uint8_t frameType = data[0];
-        uint8_t flags = data[1];
-        uint16_t payloadLength = static_cast<uint16_t>(data[2]) | (static_cast<uint16_t>(data[3]) << 8);
+    // Process data in payload state
+    size_t process_payload_state(const uint8_t* data, size_t size);
 
-        // Validate frame type (must be ASCII letter A-Z)
-        if (frameType < 65 || frameType > 90) {
-            throw std::invalid_argument("Invalid frame type: " + std::to_string(frameType));
-        }
+    // Extract header fields from the header buffer
+    void extract_header_fields();
 
-        // Validate payload length
-        if (payloadLength > MAX_PAYLOAD_SIZE) {
-            throw std::invalid_argument("Payload length " + std::to_string(payloadLength) + 
-                                        " exceeds maximum allowed size");
-        }
+    // Validate payload size against maximum
+    bool validate_payload_size() const;
 
-        return FrameHeader(frameType, flags, payloadLength);
-    }
+    // Prepare for payload processing
+    void prepare_for_payload();
 
-    // Try to decode frame payload using CBOR
-    std::optional<json> maybeFramePayload(std::span<const uint8_t> data, const FrameHeader& header) {
-        if (data.size() < header.getPayloadLength()) {
-            return std::nullopt;
-        }
+    // Handle a complete frame
+    void handle_complete_frame();
 
-        try {
-            // Parse CBOR from the data
-            auto payload_data = std::vector<uint8_t>(data.begin(), data.begin() + header.getPayloadLength());
-            return json::from_cbor(payload_data);
-        } catch (const json::parse_error& e) {
-            throw std::runtime_error(std::string("Invalid CBOR payload for frame type ") + 
-                                    static_cast<char>(header.getFrameType()) + ": " + e.what());
-        }
-    }
+    std::shared_ptr<buffer_pool> pool_;
+    frame_handler handler_;
+    size_t max_frame_size_;
+
+    // Current state
+    state state_;
+
+    // Current frame data
+    uint8_t current_type_;
+    uint8_t current_flags_;
+    uint16_t current_payload_size_;
+    std::unique_ptr<buffer> current_payload_;
+    size_t payload_bytes_read_;
+
+    // Header buffer for incomplete headers
+    uint8_t header_buffer_[FRAME_HEADER_SIZE];
+    size_t header_bytes_read_;
 };
+
+} // namespace scene_talk

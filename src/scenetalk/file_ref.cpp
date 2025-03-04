@@ -1,6 +1,8 @@
 #include "file_ref.h"
 
-FileRef::FileRef(
+namespace scene_talk {
+
+file_ref::file_ref(
     const std::string& file_id,
     const std::string& filename,
     const std::optional<std::string>& content_type,
@@ -11,8 +13,8 @@ FileRef::FileRef(
     size_(size) {
 }
 
-json FileRef::to_json() const {
-    json result = {
+nlohmann::json file_ref::to_json() const {
+    nlohmann::json result = {
         {"file_id", file_id_},
         {"filename", filename_}
     };
@@ -27,3 +29,5 @@ json FileRef::to_json() const {
 
     return result;
 }
+
+} // namespace scene_talk

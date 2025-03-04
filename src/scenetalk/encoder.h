@@ -1,112 +1,100 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 #include <string>
 #include <optional>
-#include <chrono>
-#include <iterator>
+#include <memory>
+#include <functional>
 #include <nlohmann/json.hpp>
-#include "file_ref.h" // Assuming FileRef is defined in a separate file
+#include "frame.h"
+#include "buffer_pool.h"
+
+namespace scene_talk {
 
 // Use CBOR functionality from nlohmann/json
 using json = nlohmann::json;
 
+// Forward decl for FileRef
+class file_ref;
+
 /**
- * Encodes protocol frames with CBOR payloads.
+ * @brief Callback type for frame writing
  */
-class Encoder {
+using frame_writer = std::function<void(const frame&)>;
+
+/**
+ * @brief Encodes protocol frames with CBOR payloads
+ */
+class encoder {
 public:
-    // Frame type constants
-    static constexpr uint8_t HELLO = 'H';
-    static constexpr uint8_t PING_PONG = 'P';
-    static constexpr uint8_t BEGIN = 'B';
-    static constexpr uint8_t END = 'E';
-    static constexpr uint8_t LOG = 'L';
-    static constexpr uint8_t ATTRIBUTE = 'S';
-    static constexpr uint8_t FILE = 'F';
-    static constexpr uint8_t PARTIAL = 'Z';
-    static constexpr uint8_t FLOW = 'X';
-
-    // Maximum payload size (64KB - 5 bytes for headers)
-    static constexpr size_t MAX_PAYLOAD_SIZE = (64 * 1024) - 5;
+    /**
+     * @brief Create an encoder
+     *
+     * @param writer Callback for writing encoded frames
+     * @param max_payload_size Maximum payload size
+     */
+    explicit encoder(frame_writer writer, size_t max_payload_size = MAX_PAYLOAD_SIZE);
 
     /**
-     * Constructor with optional parameters to override defaults
+     * @brief Send a BEGIN frame
      */
-    Encoder(size_t max_payload = MAX_PAYLOAD_SIZE);
+    void begin(const std::string& entity_type, const std::string& name, int depth);
 
     /**
-     * Encodes a BEGIN frame.
+     * @brief Send an END frame
      */
-    std::vector<std::vector<uint8_t>> begin(const std::string& entity_type,
-                                          const std::string& name,
-                                          int depth);
+    void end(int depth);
 
     /**
-     * Encodes an END frame.
+     * @brief Send an ATTRIBUTE frame
      */
-    std::vector<std::vector<uint8_t>> end(int depth);
+    void attr(const std::string& name, const std::string& attr_type, const json& value);
 
     /**
-     * Encodes an attribute frame.
+     * @brief Send a PING-PONG frame
      */
-    std::vector<std::vector<uint8_t>> attr(const std::string& name,
-                                         const std::string& attr_type,
-                                         const json& value);
+    void ping_pong();
 
     /**
-     * Encodes a ping-pong frame with current timestamp.
+     * @brief Send a FLOW control frame
      */
-    std::vector<std::vector<uint8_t>> ping_pong();
+    void flow_control(int backoff_value);
 
     /**
-     * Encodes a flow control frame.
+     * @brief Send an ERROR log frame
      */
-    std::vector<std::vector<uint8_t>> flow_control(int backoff_value);
+    void error(const std::string& msg);
 
     /**
-     * Encodes an error log frame.
+     * @brief Send an INFO log frame
      */
-    std::vector<std::vector<uint8_t>> error(const std::string& msg);
+    void info(const std::string& msg);
 
     /**
-     * Encodes an info log frame.
+     * @brief Send a WARNING log frame
      */
-    std::vector<std::vector<uint8_t>> info(const std::string& msg);
+    void warning(const std::string& msg);
 
     /**
-     * Encodes a warning log frame.
+     * @brief Send a FILE frame
      */
-    std::vector<std::vector<uint8_t>> warning(const std::string& msg);
+    void file(const file_ref& file_ref, bool status = false);
 
     /**
-     * Encodes a file parameter frame.
+     * @brief Send a HELLO frame
      */
-    std::vector<std::vector<uint8_t>> file(const FileRef& file_ref, bool status = false);
-
-    /**
-     * Encodes a hello frame with client version.
-     */
-    std::vector<std::vector<uint8_t>> hello(const std::string& client,
-                                          const std::optional<std::string>& auth_token = std::nullopt);
+    void hello(const std::string& client,
+              const std::optional<std::string>& auth_token = std::nullopt);
 
 private:
     /**
-     * Creates frames for the given frame type and payload.
+     * @brief Send a frame with CBOR-encoded payload
      */
-    std::vector<std::vector<uint8_t>> frames(uint8_t frame_type, const json& payload);
+    void write_frame(uint8_t frame_type, const json& payload);
 
-    /**
-     * Serializes a uint16_t in little endian format.
-     */
-    std::vector<uint8_t> packUint16LE(uint16_t value);
-
-    /**
-     * Packs a frame header.
-     */
-    std::vector<uint8_t> packFrameHeader(uint8_t frame_type, uint8_t flags, uint16_t length);
-
-    size_t max_payload_;
+    frame_writer writer_;
+    size_t max_payload_size_;
     uint32_t next_stream_id_;
 };
+
+} // namespace scene_talk

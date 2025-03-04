@@ -12,6 +12,11 @@ add_executable(${executable_name} ${SOURCES}
         encoder.cpp
         example.cpp
         file_ref.h
-        file_ref.cpp)
+        file_ref.cpp
+        buffer_pool.h
+        buffer_pool.cpp
+        frame.h
+        decoder.h
+        decoder.cpp)
 
 add_subdirectory(tests)

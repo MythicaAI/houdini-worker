@@ -4,15 +4,22 @@
 #include <optional>
 #include <nlohmann/json.hpp>
 
-// Using nlohmann/json for JSON handling
-using json = nlohmann::json;
+namespace scene_talk {
 
 /**
- * FileRef class that mimics the Python FileRef class
+ * @brief Reference to a file in the protocol
  */
-class FileRef {
+class file_ref {
 public:
-    FileRef(
+    /**
+     * @brief Create a file reference
+     *
+     * @param file_id Unique identifier for the file
+     * @param filename Name of the file
+     * @param content_type Optional MIME type
+     * @param size Optional file size
+     */
+    file_ref(
         const std::string& file_id,
         const std::string& filename,
         const std::optional<std::string>& content_type = std::nullopt,
@@ -20,9 +27,15 @@ public:
     );
 
     /**
-     * Convert the FileRef to JSON representation
+     * @brief Convert to JSON representation
      */
-    json to_json() const;
+    nlohmann::json to_json() const;
+
+    // Accessors
+    const std::string& file_id() const { return file_id_; }
+    const std::string& filename() const { return filename_; }
+    const std::optional<std::string>& content_type() const { return content_type_; }
+    const std::optional<size_t>& size() const { return size_; }
 
 private:
     std::string file_id_;
@@ -30,3 +43,5 @@ private:
     std::optional<std::string> content_type_;
     std::optional<size_t> size_;
 };
+
+} // namespace scene_talk
