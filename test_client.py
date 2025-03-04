@@ -6,6 +6,7 @@ import logging
 import os
 import random
 from typing import Any, Callable
+import base64
 
 from httpx import AsyncClient
 from httpx_ws import aconnect_ws
@@ -99,17 +100,59 @@ async def main():
                 response["data"] == "end"
             return completed
 
+        # Upload HDA file
+        hda_path = "assets/test_cube.hda"
+        base64_content = None
+        with open(hda_path, "rb") as f:
+            file_content = f.read()
+            base64_content = base64.b64encode(file_content).decode('utf-8')
+
+        upload_message = {
+            "op": "file_upload",
+            "data": {
+                "file_id": hda_path,
+                "content_base64": base64_content
+            }
+        }
+        log.info("Uploading HDA file")
+        success = await worker.send_message(
+            upload_message,
+            process_response)
+        assert success
+        log.info("HDA file uploaded")
+
+        # Upload USDZ file
+        input_path = "assets/cube.usdz"
+        base64_content = None
+        with open(input_path, "rb") as f:
+            file_content = f.read()
+            base64_content = base64.b64encode(file_content).decode('utf-8')
+
+        upload_message = {
+            "op": "file_upload",
+            "data": {
+                "file_id": input_path,
+                "content_base64": base64_content
+            }
+        }
+        log.info("Uploading USDZ file")
+        success = await worker.send_message(
+            upload_message,
+            process_response)
+        assert success
+        log.info("USDZ file uploaded")
+
+        # Cook HDA
         test_message = {
             "op": "cook",
             "data": {
                 "hda_path": {
-                    "file_id": "file_xxx",
-                    "file_path": "assets/test_cube.hda"
+                    "file_id": hda_path
                 },
                 "definition_index": 0,
                 "input0": {
-                    "file_id": "file_xxx",
-                    "file_path": "assets/cube.usdz"},
+                    "file_id": input_path
+                },
                 "test_int": 5,
                 "test_float": 2.0,
                 "test_string": "test",

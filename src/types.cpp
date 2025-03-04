@@ -1,3 +1,4 @@
+#include "file_cache.h"
 #include "types.h"
 #include "util.h"
 
@@ -8,24 +9,8 @@
 namespace util
 {
 
-bool parse_request(const std::string& message, CookRequest& request)
+static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, FileCache& file_cache)
 {
-    // Parse message type
-    UT_JSONValue root;
-    if (!root.parseValue(message) || !root.isMap())
-    {
-        util::log() << "Failed to parse JSON message" << std::endl;
-        return false;
-    }
-
-    const UT_JSONValue* op = root.get("op");
-    if (!op || op->getType() != UT_JSONValue::JSON_STRING || op->getString().toStdString() != "cook")
-    {
-        util::log() << "Operation is not cook" << std::endl;
-        return false;
-    }
-
-    const UT_JSONValue* data = root.get("data");
     if (!data || data->getType() != UT_JSONValue::JSON_MAP)
     {
         util::log() << "Data is not a map" << std::endl;
@@ -51,15 +36,21 @@ bool parse_request(const std::string& message, CookRequest& request)
             case UT_JSONValue::JSON_MAP:
             {
                 const UT_JSONValue* file_id = value.get("file_id");
-                const UT_JSONValue* file_path = value.get("file_path");
-                if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING || 
-                    !file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
+                if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING)
                 {
                     util::log() << "Failed to parse file parameter: " << key.toStdString() << std::endl;
                     break;
                 }
 
-                paramSet[key.toStdString()] = Parameter(FileParameter{file_id->getS(), file_path->getS()});
+                std::string file_id_str = file_id->getS();
+                std::string file_path = file_cache.get_file_by_id(file_id_str);
+                if (file_path.empty())
+                {
+                    util::log() << "File not found: " << file_id_str << std::endl;
+                    break;
+                }
+
+                paramSet[key.toStdString()] = Parameter(FileParameter{file_id_str, file_path});
                 break;
             }
             /*
@@ -93,7 +84,7 @@ bool parse_request(const std::string& message, CookRequest& request)
     // Bind input parameters
     std::regex input_pattern("^input(\\d+)$");
     std::smatch match;
-    
+
     auto iter = paramSet.begin();
     while (iter != paramSet.end())
     {
@@ -118,6 +109,75 @@ bool parse_request(const std::string& message, CookRequest& request)
     request.parameters = paramSet;
 
     return true;
+}
+
+static bool parse_file_upload_request(const UT_JSONValue* data, FileUploadRequest& request)
+{
+    if (!data || data->getType() != UT_JSONValue::JSON_MAP)
+    {
+        util::log() << "Data is not a map" << std::endl;
+        return false;
+    }
+
+    const UT_JSONValue* file_id = data->get("file_id");
+    if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING)
+    {
+        util::log() << "Request missing required field: file_id" << std::endl;
+        return false;
+    }
+
+    const UT_JSONValue* content_base64 = data->get("content_base64");
+    if (!content_base64 || content_base64->getType() != UT_JSONValue::JSON_STRING)
+    {
+        util::log() << "Request missing required field: content_base64" << std::endl;
+        return false;
+    }
+
+    request.file_id = file_id->getS();
+    request.content_base64 = content_base64->getS();
+
+    return true;
+}
+
+bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache)
+{
+    // Parse message type
+    UT_JSONValue root;
+    if (!root.parseValue(message) || !root.isMap())
+    {
+        util::log() << "Failed to parse JSON message" << std::endl;
+        return false;
+    }
+
+    const UT_JSONValue* op = root.get("op");
+    if (!op || op->getType() != UT_JSONValue::JSON_STRING)
+    {
+        util::log() << "Operation is not cook" << std::endl;
+        return false;
+    }
+
+    const UT_JSONValue* data = root.get("data");
+    if (!data)
+    {
+        util::log() << "Request missing data" << std::endl;
+        return false;
+    }
+
+    if (op->getString().toStdString() == "cook")
+    {
+        request = CookRequest();
+        return parse_cook_request(data, std::get<CookRequest>(request), file_cache);
+    }
+    else if (op->getString().toStdString() == "file_upload")
+    {
+        request = FileUploadRequest();
+        return parse_file_upload_request(data, std::get<FileUploadRequest>(request));
+    }
+    else
+    {
+        util::log() << "Invalid operation: " << op->getString().toStdString() << std::endl;
+        return false;
+    }
 }
 
 }

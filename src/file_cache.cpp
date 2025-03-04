@@ -17,7 +17,7 @@ FileCache::FileCache()
     m_cache_dir = cache_dir.string();
 }
 
-bool FileCache::add_file(const std::string& relative_path, const std::string& content_base64)
+bool FileCache::add_file(const std::string& file_id, const std::string& content_base64)
 {
     // Decode base64 content
     UT_WorkBuffer decoded;
@@ -53,8 +53,8 @@ bool FileCache::add_file(const std::string& relative_path, const std::string& co
         util::log() << "File cached: " << hash << std::endl;
     }
 
-    m_file_by_relative_path[relative_path] = absolute_path;
-    util::log() << "Recorded cache reference: " << relative_path << " -> " << hash << std::endl;
+    m_file_by_id[file_id] = absolute_path;
+    util::log() << "Recorded cache reference: " << file_id << " -> " << hash << std::endl;
     return true;
 }
 
@@ -64,8 +64,8 @@ std::string FileCache::get_file_by_hash(const std::string& hash)
     return iter != m_file_by_hash.end() ? iter->second : "";
 }
 
-std::string FileCache::get_file_by_relative_path(const std::string& relative_path)
+std::string FileCache::get_file_by_id(const std::string& file_id)
 {
-    auto iter = m_file_by_relative_path.find(relative_path);
-    return iter != m_file_by_relative_path.end() ? iter->second : "";
+    auto iter = m_file_by_id.find(file_id);
+    return iter != m_file_by_id.end() ? iter->second : "";
 }
