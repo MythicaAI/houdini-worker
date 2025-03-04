@@ -1,12 +1,12 @@
 import argparse
 import asyncio
+import base64
 import json
 import contextlib
 import logging
 import os
 import random
 from typing import Any, Callable
-import base64
 
 from httpx import AsyncClient
 from httpx_ws import aconnect_ws
@@ -147,10 +147,12 @@ async def main():
             "op": "cook",
             "data": {
                 "hda_path": {
+                    "file_id": "file_xxx",
                     "file_path": hda_path
                 },
                 "definition_index": 0,
                 "input0": {
+                    "file_id": "file_xxx",
                     "file_path": input_path
                 },
                 "test_int": 5,

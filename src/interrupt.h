@@ -1,9 +1,9 @@
 #pragma once
 
-#include "stream_writer.h"
-
 #include <UT/UT_Interrupt.h>
 #include <chrono>
+
+class StreamWriter;
 
 class InterruptHandler : public UT_InterruptHandler
 {
@@ -14,16 +14,16 @@ public:
     virtual void start(UT_Interrupt *intr,
                       const UT_InterruptMessage &msg,
                       const UT_StringRef &main_optext,
-                      int priority) override; 
-    
+                      int priority) override;
+
     virtual void push(UT_Interrupt *intr,
                      const UT_InterruptMessage &msg,
                      const UT_StringRef &main_optext,
                      int priority) override;
-    
+
     virtual void busyCheck(bool interrupted,
                           float percent,
-                          float longpercent) override; 
+                          float longpercent) override;
 
     virtual void pop() override {}
     virtual void stop() override {}

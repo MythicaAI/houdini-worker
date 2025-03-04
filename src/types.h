@@ -7,6 +7,7 @@
 #include <vector>
 
 class FileCache;
+class StreamWriter;
 
 struct Geometry
 {
@@ -53,5 +54,5 @@ using WorkerRequest = std::variant<CookRequest, FileUploadRequest>;
 
 namespace util
 {
-    bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache);
+    bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache, StreamWriter& writer);
 }

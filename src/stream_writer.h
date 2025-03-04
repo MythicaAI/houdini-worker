@@ -1,9 +1,9 @@
 #pragma once
 
-#include "types.h"
-#include "websocket.h"
-
 #include <string>
+
+struct Geometry;
+class WebSocket;
 
 enum class AutomationState
 {
@@ -14,8 +14,8 @@ enum class AutomationState
 class StreamWriter
 {
 public:
-    StreamWriter(WebSocket& websocket, int connection_id) 
-        : m_websocket(websocket), m_connection_id(connection_id) 
+    StreamWriter(WebSocket& websocket, int connection_id)
+        : m_websocket(websocket), m_connection_id(connection_id)
     {}
 
     void state(AutomationState state);

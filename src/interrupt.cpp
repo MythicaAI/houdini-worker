@@ -1,9 +1,10 @@
 #include "interrupt.h"
+#include "stream_writer.h"
 
 void InterruptHandler::start(UT_Interrupt *intr,
     const UT_InterruptMessage &msg,
     const UT_StringRef &main_optext,
-    int priority) 
+    int priority)
 {
     if (priority >= m_priority_threshold)
     {
@@ -15,7 +16,7 @@ void InterruptHandler::start(UT_Interrupt *intr,
 void InterruptHandler::push(UT_Interrupt *intr,
     const UT_InterruptMessage &msg,
     const UT_StringRef &main_optext,
-    int priority) 
+    int priority)
 {
     if (priority >= m_priority_threshold)
     {
@@ -38,7 +39,7 @@ void InterruptHandler::push(UT_Interrupt *intr,
 
 void InterruptHandler::busyCheck(bool interrupted,
     float percent,
-    float longpercent) 
+    float longpercent)
 {
     m_writer.status("Progress: " + std::to_string(percent) + " " + std::to_string(longpercent));
 }

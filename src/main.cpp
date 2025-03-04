@@ -16,7 +16,7 @@ static const int COOK_TIMEOUT_SECONDS = 1;
 static bool execute_automation(const std::string& message, MOT_Director* boss, FileCache& file_cache, StreamWriter& writer)
 {
     WorkerRequest request;
-    if (!util::parse_request(message, request, file_cache))
+    if (!util::parse_request(message, request, file_cache, writer))
     {
         writer.error("Failed to parse request");
         return false;
