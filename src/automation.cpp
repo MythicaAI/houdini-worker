@@ -229,10 +229,11 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
     GA_ROHandleV3 UV_handle(gdp, GA_ATTRIB_VERTEX, "uv");
     if (!P_handle.isValid())
     {
+        writer.error("Geometry missing point attribute");
         return false;
     }
 
-    int primIndex = 0;
+    int prim_index = 0;
     const GEO_Primitive* prim;
     GA_FOR_ALL_PRIMITIVES(gdp, prim)
     {
@@ -242,11 +243,14 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
         }
 
         GA_Range pt_range = prim->getPointRange();
-        GA_Size numPoints = pt_range.getEntries();
-        if (numPoints != 4)
+        GA_Size num_points = pt_range.getEntries();
+        if (num_points < 3)
         {
             continue;
         }
+
+        int base_index = geom.points.size() / 3;
+        assert(geom.points.size() % 3 == 0);
 
         for (GA_Iterator pt_it(pt_range); !pt_it.atEnd(); ++pt_it)
         {
@@ -273,18 +277,25 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
             }
         }
 
-        int baseIndex = primIndex * 4;
-        geom.indices.push_back(0 + baseIndex);
-        geom.indices.push_back(1 + baseIndex);
-        geom.indices.push_back(2 + baseIndex);
-        geom.indices.push_back(0 + baseIndex);
-        geom.indices.push_back(2 + baseIndex);
-        geom.indices.push_back(3 + baseIndex);
+        // Triangulate as a fan
+        int num_tris = num_points - 2;
+        for (int i = 0; i < num_tris; i++)
+        {
+            geom.indices.push_back(base_index + 0);
+            geom.indices.push_back(base_index + i + 1);
+            geom.indices.push_back(base_index + i + 2);
+        }
 
-        primIndex++;
+        prim_index++;
     }
 
-    return geom.points.size() > 0;
+    if (geom.points.size() == 0)
+    {
+        writer.error("Geometry contains no primitives");
+        return false;
+    }
+
+    return true;
 }
 
 bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)

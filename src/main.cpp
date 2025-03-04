@@ -11,7 +11,7 @@
 #include <UT/UT_Main.h>
 #include <iostream>
 
-static const int COOK_TIMEOUT_SECONDS = 1;
+static const int COOK_TIMEOUT_SECONDS = 60;
 
 static bool execute_automation(const std::string& message, MOT_Director* boss, FileCache& file_cache, StreamWriter& writer)
 {
