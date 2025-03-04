@@ -233,7 +233,6 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
         return false;
     }
 
-    int prim_index = 0;
     const GEO_Primitive* prim;
     GA_FOR_ALL_PRIMITIVES(gdp, prim)
     {
@@ -285,8 +284,6 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
             geom.indices.push_back(base_index + i + 1);
             geom.indices.push_back(base_index + i + 2);
         }
-
-        prim_index++;
     }
 
     if (geom.points.size() == 0)
