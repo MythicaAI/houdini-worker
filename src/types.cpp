@@ -3,9 +3,10 @@
 #include "types.h"
 #include "util.h"
 
-#include <UT/UT_JSONValue.h>
+#include <filesystem>
 #include <iostream>
 #include <regex>
+#include <UT/UT_JSONValue.h>
 
 namespace util
 {
@@ -47,8 +48,16 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                 std::string resolved_path = file_cache.get_file_by_path(file_path_str);
                 if (resolved_path.empty())
                 {
-                    writer.error("File not found: " + file_path_str);
-                    break;
+                    // Fall back to using files baked into the image
+                    if (std::filesystem::exists(file_path_str))
+                    {
+                        resolved_path = file_path_str;
+                    }
+                    else
+                    {
+                        writer.error("File not found: " + file_path_str);
+                        break;
+                    }
                 }
 
                 paramSet[key.toStdString()] = Parameter(FileParameter{"", resolved_path});
