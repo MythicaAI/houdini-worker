@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Babylon.js Scene</title>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+<canvas id="renderCanvas" style="width: 100%; height: 100vh;"></canvas>
+<script>
+  const canvas = document.getElementById("renderCanvas");
+  const engine = new BABYLON.Engine(canvas, true);
+  const scene = new BABYLON.Scene(engine);
+
+  // Create a camera
+  const camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 4, Math.PI / 4, 10, BABYLON.Vector3.Zero(), scene);
+  camera.attachControl(canvas, true);
+
+  // Create a light
+  const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+  light.intensity = 0.7;
+
+  // Create a plane
+  const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
+  plane.receiveShadows = true;
+
+  // WebSocket setup
+  const ws = new WebSocket("ws://localhost:8765");
+
+  ws.onopen = (event) => {
+    console.log("connected to socket")
+    const testMessage = {
+      "op": "cook",
+      "data": {
+        "hda_path": {
+          "file_id": "file_xxx",
+          "file_path": "test_cube.hda"
+        },
+        "definition_index": 0,
+        "input0": {
+          "file_id": "file_xxx",
+          "file_path": "cube.usdz"
+        },
+        "test_int": 5,
+        "test_float": 2.0,
+        "test_string": "test",
+        "test_bool": true
+      }
+    };
+    ws.send(JSON.stringify(testMessage));
+  }
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log("received event: " + JSON.stringify(data));
+    if (data.op === "geometry") {
+      const mesh = data.data;   // get the mesh from the payload
+      if (mesh.points && mesh.indices) {
+        createMeshFromData(mesh.points, mesh.indices);
+      }
+    }
+  };
+
+  const createMeshFromData = (vertices, indices) => {
+    const customMesh = new BABYLON.Mesh("customMesh", scene);
+    const vertexData = new BABYLON.VertexData();
+
+    vertexData.positions = vertices;
+    vertexData.indices = indices;
+
+    vertexData.applyToMesh(customMesh);
+  };
+
+  engine.runRenderLoop(() => {
+    scene.render();
+  });
+
+  window.addEventListener("resize", () => {
+    engine.resize();
+  });
+</script>
+</body>
+</html>
