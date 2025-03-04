@@ -17,7 +17,7 @@ FileCache::FileCache()
     m_cache_dir = cache_dir.string();
 }
 
-bool FileCache::add_file(const std::string& file_id, const std::string& content_base64)
+bool FileCache::add_file(const std::string& file_path, const std::string& content_base64)
 {
     // Decode base64 content
     UT_WorkBuffer decoded;
@@ -32,12 +32,22 @@ bool FileCache::add_file(const std::string& file_id, const std::string& content_
     UT_SHA256::hash(decoded, hash_result);
     std::string hash = hash_result.toStdString();
 
+    // Store file using the original file extension
+    std::string extension;
+    size_t dot_pos = file_path.find_last_of('.');
+    if (dot_pos == std::string::npos)
+    {
+        util::log() << "File has no extension: " << file_path << std::endl;
+        return false;
+    }
+    extension = file_path.substr(dot_pos);
+
+    std::string resolved_path = (std::filesystem::path(m_cache_dir) / (hash + extension)).string();
+
     // Store the file content if it's not already cached
-    std::filesystem::path cache_file_path = std::filesystem::path(m_cache_dir) / hash;
-    std::string absolute_path = cache_file_path.string();
     if (m_file_by_hash.find(hash) == m_file_by_hash.end())
     {
-        std::ofstream file(absolute_path, std::ios::binary);
+        std::ofstream file(resolved_path, std::ios::binary);
         if (!file)
         {
             return false;
@@ -49,12 +59,12 @@ bool FileCache::add_file(const std::string& file_id, const std::string& content_
             return false;
         }
 
-        m_file_by_hash[hash] = absolute_path;
-        util::log() << "File cached: " << hash << std::endl;
+        m_file_by_hash[hash] = resolved_path;
+        util::log() << "File cached: " << resolved_path << std::endl;
     }
 
-    m_file_by_id[file_id] = absolute_path;
-    util::log() << "Recorded cache reference: " << file_id << " -> " << hash << std::endl;
+    m_file_by_path[file_path] = resolved_path;
+    util::log() << "Recorded cache reference: " << file_path << " -> " << resolved_path << std::endl;
     return true;
 }
 
@@ -64,8 +74,8 @@ std::string FileCache::get_file_by_hash(const std::string& hash)
     return iter != m_file_by_hash.end() ? iter->second : "";
 }
 
-std::string FileCache::get_file_by_id(const std::string& file_id)
+std::string FileCache::get_file_by_path(const std::string& file_path)
 {
-    auto iter = m_file_by_id.find(file_id);
-    return iter != m_file_by_id.end() ? iter->second : "";
+    auto iter = m_file_by_path.find(file_path);
+    return iter != m_file_by_path.end() ? iter->second : "";
 }

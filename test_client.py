@@ -110,7 +110,7 @@ async def main():
         upload_message = {
             "op": "file_upload",
             "data": {
-                "file_id": hda_path,
+                "file_path": hda_path,
                 "content_base64": base64_content
             }
         }
@@ -131,7 +131,7 @@ async def main():
         upload_message = {
             "op": "file_upload",
             "data": {
-                "file_id": input_path,
+                "file_path": input_path,
                 "content_base64": base64_content
             }
         }
@@ -147,11 +147,11 @@ async def main():
             "op": "cook",
             "data": {
                 "hda_path": {
-                    "file_id": hda_path
+                    "file_path": hda_path
                 },
                 "definition_index": 0,
                 "input0": {
-                    "file_id": input_path
+                    "file_path": input_path
                 },
                 "test_int": 5,
                 "test_float": 2.0,

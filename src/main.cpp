@@ -29,7 +29,7 @@ static bool execute_automation(const std::string& message, MOT_Director* boss, F
     else if (std::holds_alternative<FileUploadRequest>(request))
     {
         FileUploadRequest file_upload_req = std::get<FileUploadRequest>(request);
-        return file_cache.add_file(file_upload_req.file_id, file_upload_req.content_base64);
+        return file_cache.add_file(file_upload_req.file_path, file_upload_req.content_base64);
     }
 
     return false;

@@ -45,7 +45,7 @@ struct CookRequest
 
 struct FileUploadRequest
 {
-    std::string file_id;
+    std::string file_path;
     std::string content_base64;
 };
 

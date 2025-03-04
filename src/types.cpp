@@ -35,22 +35,22 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                 break;
             case UT_JSONValue::JSON_MAP:
             {
-                const UT_JSONValue* file_id = value.get("file_id");
-                if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING)
+                const UT_JSONValue* file_path = value.get("file_path");
+                if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
                 {
                     util::log() << "Failed to parse file parameter: " << key.toStdString() << std::endl;
                     break;
                 }
 
-                std::string file_id_str = file_id->getS();
-                std::string file_path = file_cache.get_file_by_id(file_id_str);
-                if (file_path.empty())
+                std::string file_path_str = file_path->getS();
+                std::string resolved_path = file_cache.get_file_by_path(file_path_str);
+                if (resolved_path.empty())
                 {
-                    util::log() << "File not found: " << file_id_str << std::endl;
+                    util::log() << "File not found: " << file_path_str << std::endl;
                     break;
                 }
 
-                paramSet[key.toStdString()] = Parameter(FileParameter{file_id_str, file_path});
+                paramSet[key.toStdString()] = Parameter(FileParameter{"", resolved_path});
                 break;
             }
             /*
@@ -119,10 +119,10 @@ static bool parse_file_upload_request(const UT_JSONValue* data, FileUploadReques
         return false;
     }
 
-    const UT_JSONValue* file_id = data->get("file_id");
-    if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING)
+    const UT_JSONValue* file_path = data->get("file_path");
+    if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
     {
-        util::log() << "Request missing required field: file_id" << std::endl;
+        util::log() << "Request missing required field: file_path" << std::endl;
         return false;
     }
 
@@ -133,7 +133,7 @@ static bool parse_file_upload_request(const UT_JSONValue* data, FileUploadReques
         return false;
     }
 
-    request.file_id = file_id->getS();
+    request.file_path = file_path->getS();
     request.content_base64 = content_base64->getS();
 
     return true;
