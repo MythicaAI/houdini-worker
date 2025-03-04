@@ -26,7 +26,7 @@ public:
      * @param handler Callback for handling decoded messages
      * @param pool Buffer pool for allocations
      */
-    decoder(message_handler handler, std::shared_ptr<buffer_pool> pool);
+    decoder(message_handler handler, const std::shared_ptr<buffer_pool> &pool);
 
     /**
      * @brief Process a frame
@@ -50,12 +50,13 @@ private:
     // Process a partial frame
     void process_partial_frame(const uint8_t* data, size_t size);
 
-    // Process a regular frame
-    void process_regular_frame(uint8_t type, uint8_t flags, const uint8_t* data, size_t size);
+    // Process a content frame
+    void process_content_frame(uint8_t type, uint8_t flags, const uint8_t* data, size_t size);
 
     message_handler handler_;
     std::shared_ptr<buffer_pool> pool_;
     std::unordered_map<uint32_t, stream_state> streams_;
+    uint32_t stream_id_ = 0;
 
     // Network buffer for receiving data
     net_buffer net_buffer_;

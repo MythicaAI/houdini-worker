@@ -17,7 +17,7 @@ frame create_cbor_frame(uint8_t type, uint8_t flags, const nlohmann::json& paylo
 }
 
 UTEST(decoder, simple_frame) {
-    auto pool = buffer_pool::create(1024);
+    const auto pool = buffer_pool::create(1024);
     nlohmann::json received_payload;
     uint8_t received_type = 0;
     bool frame_decoded = false;
@@ -156,7 +156,7 @@ UTEST(decoder, partial_frames) {
     // Final chunk of data
     std::vector<uint8_t> chunk3(full_payload.begin() + 2 * chunk_size,
                               full_payload.end());
-    frame data3(ATTRIBUTE, 0, chunk3);  // Flag=0 for last chunk
+    frame data3(ATTRIBUTE, 1, chunk3);  // Flag=0 for last chunk
 
     // Process final part
     dec.process_frame(partial3);
@@ -247,7 +247,7 @@ UTEST(decoder, multiple_streams) {
     frame partial1_final = create_cbor_frame(PARTIAL, 0, partial_header1_final);
 
     std::vector<uint8_t> data1_final = {9, 10};
-    frame data1_final_frame(ATTRIBUTE, 0, data1_final);
+    frame data1_final_frame(ATTRIBUTE, 1, data1_final);
 
     // Process first stream completion
     dec.process_frame(partial1_final);
@@ -261,7 +261,7 @@ UTEST(decoder, multiple_streams) {
     frame partial2_final = create_cbor_frame(PARTIAL, 0, partial_header2_final);
 
     std::vector<uint8_t> data2_final = {11, 12};
-    frame data2_final_frame(LOG, 0, data2_final);
+    frame data2_final_frame(LOG, 1, data2_final);
 
     // Process second stream completion
     dec.process_frame(partial2_final);

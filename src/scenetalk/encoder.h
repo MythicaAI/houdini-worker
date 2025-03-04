@@ -14,7 +14,7 @@ namespace scene_talk {
 // Use CBOR functionality from nlohmann/json
 using json = nlohmann::json;
 
-// Type for FileRef - use forward declaration to avoid including the header
+// Forward decl for FileRef
 class file_ref;
 
 /**
@@ -90,7 +90,7 @@ private:
     /**
      * @brief Send a frame with CBOR-encoded payload
      */
-    void send_frame(uint8_t frame_type, const json& payload);
+    void write_frame(uint8_t frame_type, const json& payload);
 
     frame_writer writer_;
     size_t max_payload_size_;

@@ -1,10 +1,14 @@
 #include "decoder.h"
 #include <cassert>
+#include <iostream>
+#include <utility>
+
+#include "encoder.h"
 
 namespace scene_talk {
 
-decoder::decoder(message_handler handler, std::shared_ptr<buffer_pool> pool)
-    : handler_(handler),
+decoder::decoder(message_handler handler, const std::shared_ptr<buffer_pool> &pool)
+    : handler_(std::move(handler)),
       pool_(pool),
       net_buffer_(pool, [this](const frame& f) { process_frame(f); }) {
 }
@@ -16,7 +20,7 @@ void decoder::process_frame(const frame& f) {
         process_partial_frame(f.payload.data(), f.payload.size());
     } else {
         // This is a regular frame
-        process_regular_frame(f.type, f.flags, f.payload.data(), f.payload.size());
+        process_content_frame(f.type, f.flags, f.payload.data(), f.payload.size());
     }
 }
 
@@ -25,39 +29,41 @@ void decoder::process_partial_frame(const uint8_t* data, size_t size) {
         // Parse the partial frame header
         nlohmann::json header = nlohmann::json::from_cbor(std::vector<uint8_t>(data, data + size));
 
-        // Extract stream ID and sequence number
-        uint32_t stream_id = header["id"];
+        // Update stream state with current ID
         uint32_t seq = header["seq"];
+        stream_id_ = header["id"];
 
-        // Create stream if it doesn't exist
-        if (streams_.find(stream_id) == streams_.end()) {
-            streams_[stream_id] = {std::vector<uint8_t>(), 1};
+        // Find or create the stream
+        auto [stream_it, inserted] = streams_.emplace(
+            stream_id_, stream_state(std::vector<uint8_t>(), 1));
+        if (inserted) {
+            stream_it = streams_.find(stream_id_); // Reacquire iterator to ensure validity
         }
 
         // Validate sequence number
-        stream_state& stream = streams_[stream_id];
-        if (seq != 0 && seq != stream.expected_seq) {
+        auto& stream = stream_it->second;
+        if (seq == 0) {
+            stream.expected_seq = 0;
+        } else if (seq != stream.expected_seq) {
             // Sequence error, discard the stream
-            streams_.erase(stream_id);
+            streams_.erase(stream_it);
+            std::cerr << "stream error " << seq << " != " << stream.expected_seq;
             return;
+        } else {
+            // Update expected sequence for next frame
+            stream.expected_seq = seq + 1;
         }
-
-        // Update expected sequence for next frame
-        stream.expected_seq = seq + 1;
     } catch (const std::exception&) {
         // Error parsing partial frame header, ignore it
     }
 }
 
-void decoder::process_regular_frame(uint8_t type, uint8_t flags, const uint8_t* data, size_t size) {
+void decoder::process_content_frame(uint8_t type, uint8_t flags, const uint8_t* data, size_t size) {
     try {
         // Check if this is part of a partial frame sequence
         if (flags != 0) {
-            // This is part of a split payload
-            uint32_t stream_id = flags;  // Assuming flags contains stream ID
-
             // If stream doesn't exist, ignore the frame
-            auto it = streams_.find(stream_id);
+            const auto it = streams_.find(stream_id_);
             if (it == streams_.end()) {
                 return;
             }
@@ -69,7 +75,7 @@ void decoder::process_regular_frame(uint8_t type, uint8_t flags, const uint8_t* 
             std::copy(data, data + size, stream.data.begin() + current_size);
 
             // If this is the final fragment (seq=0), process the complete payload
-            if (flags == 0) {
+            if (stream.expected_seq == 0) {
                 nlohmann::json payload = nlohmann::json::from_cbor(stream.data);
                 handler_(type, payload);
 
@@ -81,8 +87,9 @@ void decoder::process_regular_frame(uint8_t type, uint8_t flags, const uint8_t* 
             nlohmann::json payload = nlohmann::json::from_cbor(std::vector<uint8_t>(data, data + size));
             handler_(type, payload);
         }
-    } catch (const std::exception&) {
+    } catch (const json::parse_error &ex) {
         // Error parsing CBOR, ignore the frame
+        std::cerr << "parse error at byte " << ex.byte << std::endl;
     }
 }
 

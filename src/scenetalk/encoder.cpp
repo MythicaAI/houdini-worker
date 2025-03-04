@@ -13,7 +13,7 @@ encoder::encoder(frame_writer writer, size_t max_payload_size)
       next_stream_id_(1) {
 }
 
-void encoder::send_frame(uint8_t frame_type, const json& payload) {
+void encoder::write_frame(uint8_t frame_type, const json& payload) {
     // Convert payload to CBOR format
     std::vector<uint8_t> payload_bytes = json::to_cbor(payload);
     size_t payload_len = payload_bytes.size();
@@ -56,9 +56,9 @@ void encoder::send_frame(uint8_t frame_type, const json& payload) {
             payload_bytes.begin() + sent_bytes + chunk_len
         );
 
-        // Send main frame with chunk
-        frame main_frame(frame_type, partial_flag, std::move(chunk));
-        writer_(main_frame);
+        // Send content chunk frame
+        frame content_chunk_frame(frame_type, partial_flag, std::move(chunk));
+        writer_(content_chunk_frame);
 
         sent_bytes += chunk_len;
     }
@@ -71,12 +71,12 @@ void encoder::begin(const std::string& entity_type, const std::string& name, int
         {"name", name}
     };
 
-    send_frame(BEGIN, payload);
+    write_frame(BEGIN, payload);
 }
 
 void encoder::end(int depth) {
     json payload = json::array({depth});
-    send_frame(END, payload);
+    write_frame(END, payload);
 }
 
 void encoder::attr(const std::string& name, const std::string& attr_type, const json& value) {
@@ -86,7 +86,7 @@ void encoder::attr(const std::string& name, const std::string& attr_type, const 
         {"value", value}
     };
 
-    send_frame(ATTRIBUTE, payload);
+    write_frame(ATTRIBUTE, payload);
 }
 
 void encoder::ping_pong() {
@@ -96,12 +96,12 @@ void encoder::ping_pong() {
         now.time_since_epoch()).count() / 1000.0;
 
     json payload = {{"time_ms", timestamp}};
-    send_frame(PING_PONG, payload);
+    write_frame(PING_PONG, payload);
 }
 
 void encoder::flow_control(int backoff_value) {
     json payload = {{"backoff", backoff_value}};
-    send_frame(FLOW, payload);
+    write_frame(FLOW, payload);
 }
 
 void encoder::error(const std::string& msg) {
@@ -110,7 +110,7 @@ void encoder::error(const std::string& msg) {
         {"text", msg}
     };
 
-    send_frame(LOG, payload);
+    write_frame(LOG, payload);
 }
 
 void encoder::info(const std::string& msg) {
@@ -119,7 +119,7 @@ void encoder::info(const std::string& msg) {
         {"text", msg}
     };
 
-    send_frame(LOG, payload);
+    write_frame(LOG, payload);
 }
 
 void encoder::warning(const std::string& msg) {
@@ -128,14 +128,14 @@ void encoder::warning(const std::string& msg) {
         {"text", msg}
     };
 
-    send_frame(LOG, payload);
+    write_frame(LOG, payload);
 }
 
 void encoder::file(const file_ref& file_ref, bool status) {
     json payload = file_ref.to_json();
     payload["status"] = status;
 
-    send_frame(FILE_REF, payload);
+    write_frame(FILE_REF, payload);
 }
 
 void encoder::hello(const std::string& client, const std::optional<std::string>& auth_token) {
@@ -155,7 +155,7 @@ void encoder::hello(const std::string& client, const std::optional<std::string>&
         payload["auth_token"] = *auth_token;
     }
 
-    send_frame(HELLO, payload);
+    write_frame(HELLO, payload);
 }
 
 } // namespace scene_talk
