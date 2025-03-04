@@ -14,8 +14,87 @@
 namespace util
 {
 
+static std::string install_library(MOT_Director* boss, const std::string& hda_file, int definition_index, StreamWriter& writer)
+{
+    // Load the library
+    OP_OTLManager& manager = boss->getOTLManager();
+    manager.installLibrary(hda_file.c_str());
+
+    int library_index = manager.findLibrary(hda_file.c_str());
+    if (library_index < 0)
+    {
+        writer.error("Failed to find library: " + hda_file);
+        return "";
+    }
+
+    // Get the actual library from the index
+    OP_OTLLibrary* library = manager.getLibrary(library_index);
+    if (!library)
+    {
+        writer.error("Failed to get library at index " + std::to_string(library_index));
+        return "";
+    }
+
+    int num_definitions = library->getNumDefinitions();
+    if (definition_index >= num_definitions)
+    {
+        writer.error("Definition index out of range: " + std::to_string(definition_index));
+        return "";
+    }
+
+    const OP_OTLDefinition& definition = library->getDefinition(definition_index);
+    std::string node_type = definition.getName().toStdString();
+
+    size_t first = node_type.find("::");
+    if (first != std::string::npos)
+    {
+        size_t last = node_type.find("::", first + 2);
+
+        if (last != std::string::npos)
+        {
+            node_type = node_type.substr(first + 2, last - (first + 2));
+        }
+        else
+        {
+            node_type = node_type.substr(first + 2);
+        }
+    }
+
+    return node_type;
+}
+
+static OP_Node* create_node(MOT_Director* boss, const std::string& node_type, StreamWriter& writer)
+{
+     // Find the root /obj network
+    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
+    if (!obj)
+    {
+        writer.error("Failed to find obj network");
+        return nullptr;
+    }
+    assert(obj->getNchildren() == 0);
+
+    // Create geo node
+    OP_Network* geo_node = (OP_Network*)obj->createNode("geo", "processor_parent");
+    if (!geo_node || !geo_node->runCreateScript())
+    {
+        writer.error("Failed to create geo node");
+        return nullptr;
+    }
+
+    // Create the SOP node
+    OP_Node* node = geo_node->createNode(node_type.c_str(), "processor");
+    if (!node || !node->runCreateScript())
+    {
+        writer.error("Failed to create node of type: " + node_type);
+        return nullptr;
+    }
+
+    return node;
+}
+
 static OP_Node* create_input_node(OP_Network* parent, const std::string& path, StreamWriter& writer)
-{ 
+{
     if (!std::filesystem::exists(path))
     {
         return nullptr;
@@ -24,7 +103,7 @@ static OP_Node* create_input_node(OP_Network* parent, const std::string& path, S
     std::string ext = std::filesystem::path(path).extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-    if (ext == ".usd" || ext == ".usdz") 
+    if (ext == ".usd" || ext == ".usdz")
     {
         OP_Node* input_node = parent->createNode("usdimport");
         if (!input_node || !input_node->runCreateScript())
@@ -80,7 +159,7 @@ static OP_Node* create_input_node(OP_Network* parent, const std::string& path, S
         input_node->setString(path.c_str(), CH_STRING_LITERAL, "filename", 0, 0.0f);
         return input_node;
     }
-    
+
     return nullptr;
 }
 
@@ -128,8 +207,23 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
     }
 }
 
-bool export_geometry(const GU_Detail* gdp, Geometry& geom)
+bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
 {
+    SOP_Node* sop = node->castToSOPNode();
+    if (!sop)
+    {
+        writer.error("Node is not a SOP node");
+        return false;
+    }
+
+    OP_Context context(0.0);
+    const GU_Detail* gdp = sop->getCookedGeo(context);
+    if (!gdp)
+    {
+        writer.error("Failed to get cooked geometry");
+        return false;
+    }
+
     GA_ROHandleV3 P_handle(gdp, GA_ATTRIB_POINT, "P");
     GA_ROHandleV3 N_handle(gdp, GA_ATTRIB_POINT, "N");
     GA_ROHandleV3 UV_handle(gdp, GA_ATTRIB_VERTEX, "uv");
@@ -195,77 +289,20 @@ bool export_geometry(const GU_Detail* gdp, Geometry& geom)
 
 bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
 {
-    const char* output_file = "output.bgeo";
-
-    // Load the library
-    OP_OTLManager& manager = boss->getOTLManager();
-    manager.installLibrary(request.hda_file.c_str());
-
-    int library_index = manager.findLibrary(request.hda_file.c_str());
-    if (library_index < 0)
+    // Install the library
+    std::string node_type = install_library(boss, request.hda_file, request.definition_index, writer);
+    if (node_type.empty())
     {
-        writer.error("Failed to find library: " + request.hda_file);
         return false;
     }
 
-    // Get the actual library from the index
-    OP_OTLLibrary* library = manager.getLibrary(library_index);
-    if (!library)
+    // Setup the node
+    OP_Node* node = create_node(boss, node_type, writer);
+    if (!node)
     {
-        writer.error("Failed to get library at index " + std::to_string(library_index));
         return false;
     }
 
-    int num_definitions = library->getNumDefinitions();
-    if (request.definition_index >= num_definitions)
-    {
-        writer.error("Definition index out of range: " + std::to_string(request.definition_index));
-        return false;
-    }
-
-    const OP_OTLDefinition& definition = library->getDefinition(request.definition_index);
-    std::string node_type = definition.getName().toStdString();
-    size_t first = node_type.find("::");
-    if (first != std::string::npos)
-    {
-        size_t last = node_type.find("::", first + 2);
-        
-        if (last != std::string::npos)
-        {
-            node_type = node_type.substr(first + 2, last - (first + 2));
-        }
-        else
-        {
-            node_type = node_type.substr(first + 2);
-        }
-    }
-
-    // Find the root /obj network
-    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
-    if (!obj)
-    {
-        writer.error("Failed to find obj network");
-        return false;
-    }
-    assert(obj->getNchildren() == 0);
-
-    // Create geo node
-    OP_Network* geo_node = (OP_Network*)obj->createNode("geo", "processor_parent");
-    if (!geo_node || !geo_node->runCreateScript())
-    {
-        writer.error("Failed to create geo node");
-        return false;
-    }
-
-    // Create the SOP node
-    OP_Node* node = geo_node->createNode(node_type.c_str(), "processor");
-    if (!node || !node->runCreateScript())
-    {
-        writer.error("Failed to create node of type: " + node_type);
-        return false;
-    }
-
-    // Set the parameters
     set_inputs(node, request.inputs, writer);
     set_parameters(node, request.parameters);
 
@@ -277,23 +314,9 @@ bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
         return false;
     }
 
-    // Get geometry from the node
-    SOP_Node* sop = node->castToSOPNode();
-    if (!sop)
-    {
-        writer.error("Node is not a SOP node");
-        return false;
-    }
-
-    const GU_Detail* gdp = sop->getCookedGeo(context);
-    if (!gdp)
-    {
-        writer.error("Failed to get cooked geometry");
-        return false;
-    }
-    
+    // Export results
     Geometry geo;
-    if (!export_geometry(gdp, geo))
+    if (!export_geometry(node, geo, writer))
     {
         writer.error("Failed to export geometry");
         return false;
