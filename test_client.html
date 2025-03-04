@@ -7,6 +7,9 @@
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
 </head>
 <body>
+<div style="text-align: center; margin-top: 10px;">
+  <button id="wireframeButton">Toggle Wireframe</button>
+</div>
 <canvas id="renderCanvas" style="width: 100%; height: 100vh;"></canvas>
 <script>
   const canvas = document.getElementById("renderCanvas");
@@ -61,8 +64,12 @@
     }
   };
 
+  let customMesh = null;
   const createMeshFromData = (vertices, indices) => {
-    const customMesh = new BABYLON.Mesh("customMesh", scene);
+    if (customMesh) {
+      customMesh.dispose();
+    }
+    customMesh = new BABYLON.Mesh("customMesh", scene);
     const vertexData = new BABYLON.VertexData();
 
     vertexData.positions = vertices;
@@ -70,6 +77,24 @@
 
     vertexData.applyToMesh(customMesh);
   };
+
+  // Toggle wireframe mode
+  document.getElementById("wireframeButton").addEventListener("click", () => {
+    if (customMesh && customMesh.material) {
+      customMesh.material.wireframe = !customMesh.material.wireframe;
+    } else if (customMesh) {
+      const material = new BABYLON.StandardMaterial("wireframeMaterial", scene);
+      material.wireframe = true;
+      customMesh.material = material;
+    }
+    if (plane && plane.material) {
+      plane.material.wireframe = !plane.material.wireframe;
+    } else if (plane) {
+      const material = new BABYLON.StandardMaterial("wireframeMaterial", scene);
+      material.wireframe = true;
+      plane.material = material;
+    }
+  });
 
   engine.runRenderLoop(() => {
     scene.render();
