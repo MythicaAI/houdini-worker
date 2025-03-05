@@ -59,13 +59,13 @@
     if (data.op === "geometry") {
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {
-        createMeshFromData(mesh.points, mesh.indices);
+        createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs);
       }
     }
   };
 
   let customMesh = null;
-  const createMeshFromData = (vertices, indices) => {
+  const createMeshFromData = (vertices, indices, normals, uvs) => {
     if (customMesh) {
       customMesh.dispose();
     }
@@ -74,6 +74,8 @@
 
     vertexData.positions = vertices;
     vertexData.indices = indices;
+    vertexData.normals = normals;
+    vertexData.uvs = uvs;
 
     vertexData.applyToMesh(customMesh);
   };
