@@ -19,7 +19,7 @@ struct WebSocketThreadState
 };
 
 static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
-{ 
+{
     WebSocketThreadState* state = (WebSocketThreadState*)c->fn_data;
 
     if (ev == MG_EV_OPEN)
@@ -35,9 +35,9 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
     else if (ev == MG_EV_WS_MSG)
     {
         struct mg_ws_message* wm = (struct mg_ws_message*) ev_data;
-        
+
         std::string message(wm->data.buf, wm->data.len);
-        util::log() << "Received message: " << message << std::endl;
+        util::log() << "Received message from connection " << c->id << ": " << (message.length() > 100 ? message.substr(0, 97) + "..." : message) << std::endl;
 
         StreamMessage msg;
         msg.connection_id = c->id;
@@ -103,7 +103,7 @@ bool MessageQueue::try_pop_request(StreamMessage& message, int timeout_ms)
     {
         return false;
     }
-    
+
     message = m_requests.front();
     m_requests.pop();
     return true;

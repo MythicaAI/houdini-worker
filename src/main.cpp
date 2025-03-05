@@ -9,6 +9,8 @@
 #include <MOT/MOT_Director.h>
 #include <PI/PI_ResourceManager.h>
 #include <UT/UT_Main.h>
+#include <chrono>
+#include <iomanip>
 #include <iostream>
 
 static const int COOK_TIMEOUT_SECONDS = 60;
@@ -37,8 +39,6 @@ static bool execute_automation(const std::string& message, MOT_Director* boss, F
 
 static void process_message(MOT_Director* boss, FileCache& file_cache, const std::string& message, StreamWriter& writer)
 {
-    util::log() << "Processing messages" << std::endl;
-
     // Setup interrupt handler
     InterruptHandler interruptHandler(writer);
     UT_Interrupt* interrupt = UTgetInterrupt();
@@ -49,9 +49,14 @@ static void process_message(MOT_Director* boss, FileCache& file_cache, const std
     // Execute automation
     writer.state(AutomationState::Start);
 
+    auto start_time = std::chrono::high_resolution_clock::now();
     bool result = execute_automation(message, boss, file_cache, writer);
+    auto end_time = std::chrono::high_resolution_clock::now();
 
     writer.state(AutomationState::End);
+
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    util::log() << "Processed request in " << std::fixed << std::setprecision(2) << duration.count() / 1000.0 << "ms" << std::endl;
 
     // Cleanup
     interrupt->setEnabled(false);
@@ -80,6 +85,7 @@ int theMain(int argc, char *argv[])
     // Initialize websocket server
     WebSocket websocket("0.0.0.0", port);
 
+    util::log() << "Ready to receive requests" << std::endl;
     while (true)
     {
         StreamMessage message;
