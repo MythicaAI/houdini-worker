@@ -18,13 +18,18 @@ static std::string install_library(MOT_Director* boss, const std::string& hda_fi
 {
     // Load the library
     OP_OTLManager& manager = boss->getOTLManager();
-    manager.installLibrary(hda_file.c_str());
 
     int library_index = manager.findLibrary(hda_file.c_str());
     if (library_index < 0)
     {
-        writer.error("Failed to find library: " + hda_file);
-        return "";
+        manager.installLibrary(hda_file.c_str());
+
+        library_index = manager.findLibrary(hda_file.c_str());
+        if (library_index < 0)
+        {
+            writer.error("Failed to install library: " + hda_file);
+            return "";
+        }
     }
 
     // Get the actual library from the index
