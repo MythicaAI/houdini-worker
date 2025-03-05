@@ -225,13 +225,17 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
     }
 
     GA_ROHandleV3 P_handle(gdp, GA_ATTRIB_POINT, "P");
-    GA_ROHandleV3 N_handle(gdp, GA_ATTRIB_POINT, "N");
-    GA_ROHandleV3 UV_handle(gdp, GA_ATTRIB_VERTEX, "uv");
     if (!P_handle.isValid())
     {
         writer.error("Geometry missing point attribute");
         return false;
     }
+
+    GA_ROHandleV3 N_P_handle(gdp, GA_ATTRIB_POINT, "N");
+    GA_ROHandleV3 N_V_handle(gdp, GA_ATTRIB_VERTEX, "N");
+
+    GA_ROHandleV3 UV_P_handle(gdp, GA_ATTRIB_POINT, "uv");
+    GA_ROHandleV3 UV_V_handle(gdp, GA_ATTRIB_VERTEX, "uv");
 
     const GEO_Primitive* prim;
     GA_FOR_ALL_PRIMITIVES(gdp, prim)
@@ -241,9 +245,8 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
            continue;
         }
 
-        GA_Range pt_range = prim->getPointRange();
-        GA_Size num_points = pt_range.getEntries();
-        if (num_points < 3)
+        GA_Size num_verts = prim->getVertexCount();
+        if (num_verts < 3)
         {
             continue;
         }
@@ -251,33 +254,50 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
         int base_index = geom.points.size() / 3;
         assert(geom.points.size() % 3 == 0);
 
-        for (GA_Iterator pt_it(pt_range); !pt_it.atEnd(); ++pt_it)
+        for (GA_Size i = 0; i < num_verts; i++)
         {
-            GA_Offset ptOff = *pt_it;
+            GA_Offset ptOff = prim->getPointOffset(i);
+            GA_Offset vtxOff = prim->getVertexOffset(i);
 
+            // Position
             UT_Vector3 pos = P_handle.get(ptOff);
             geom.points.push_back(pos.x());
             geom.points.push_back(pos.y());
             geom.points.push_back(pos.z());
 
-            if (N_handle.isValid())
+            // Normal
+            if (N_P_handle.isValid())
             {
-                UT_Vector3 norm = N_handle.get(ptOff);
+                UT_Vector3 norm = N_P_handle.get(ptOff);
+                geom.normals.push_back(norm.x());
+                geom.normals.push_back(norm.y());
+                geom.normals.push_back(norm.z());
+            }
+            else if (N_V_handle.isValid())
+            {
+                UT_Vector3 norm = N_V_handle.get(vtxOff);
                 geom.normals.push_back(norm.x());
                 geom.normals.push_back(norm.y());
                 geom.normals.push_back(norm.z());
             }
 
-            if (UV_handle.isValid())
+            // UV
+            if (UV_P_handle.isValid())
             {
-                UT_Vector3 uv = UV_handle.get(ptOff);
+                UT_Vector3 uv = UV_P_handle.get(ptOff);
+                geom.uvs.push_back(uv.x());
+                geom.uvs.push_back(uv.y());
+            }
+            else if (UV_V_handle.isValid())
+            {
+                UT_Vector3 uv = UV_V_handle.get(vtxOff);
                 geom.uvs.push_back(uv.x());
                 geom.uvs.push_back(uv.y());
             }
         }
 
         // Triangulate as a fan
-        int num_tris = num_points - 2;
+        int num_tris = num_verts - 2;
         for (int i = 0; i < num_tris; i++)
         {
             geom.indices.push_back(base_index + 0);
