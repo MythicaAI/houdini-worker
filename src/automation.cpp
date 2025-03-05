@@ -18,13 +18,18 @@ static std::string install_library(MOT_Director* boss, const std::string& hda_fi
 {
     // Load the library
     OP_OTLManager& manager = boss->getOTLManager();
-    manager.installLibrary(hda_file.c_str());
 
     int library_index = manager.findLibrary(hda_file.c_str());
     if (library_index < 0)
     {
-        writer.error("Failed to find library: " + hda_file);
-        return "";
+        manager.installLibrary(hda_file.c_str());
+
+        library_index = manager.findLibrary(hda_file.c_str());
+        if (library_index < 0)
+        {
+            writer.error("Failed to install library: " + hda_file);
+            return "";
+        }
     }
 
     // Get the actual library from the index
@@ -65,25 +70,30 @@ static std::string install_library(MOT_Director* boss, const std::string& hda_fi
 
 static OP_Node* create_node(MOT_Director* boss, const std::string& node_type, StreamWriter& writer)
 {
-     // Find the root /obj network
+    // Find the root /obj network
     OP_Network* obj = (OP_Network*)boss->findNode("/obj");
     if (!obj)
     {
         writer.error("Failed to find obj network");
         return nullptr;
     }
-    assert(obj->getNchildren() == 0);
+    assert(obj->getNchildren() == 0 || obj->getNchildren() == 1);
 
     // Create geo node
-    OP_Network* geo_node = (OP_Network*)obj->createNode("geo", "processor_parent");
-    if (!geo_node || !geo_node->runCreateScript())
+    OP_Network* geo = (OP_Network*)obj->findNode("geo");
+    if (!geo)
     {
-        writer.error("Failed to create geo node");
-        return nullptr;
+        geo = (OP_Network*)obj->createNode("geo", "geo");
+        if (!geo || !geo->runCreateScript())
+        {
+            writer.error("Failed to create geo node");
+            return nullptr;
+        }
     }
+    assert(geo->getNchildren() == 0);
 
     // Create the SOP node
-    OP_Node* node = geo_node->createNode(node_type.c_str(), "processor");
+    OP_Node* node = geo->createNode(node_type.c_str());
     if (!node || !node->runCreateScript())
     {
         writer.error("Failed to create node of type: " + node_type);
@@ -357,12 +367,16 @@ bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
 
 void cleanup_session(MOT_Director* boss)
 {
-    for (int i = boss->getNchildren() - 1; i >= 0; i--)
+    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
+    if (obj)
     {
-        OP_Network* subnetwork = (OP_Network*)boss->getChild(i);
-        for (int j = subnetwork->getNchildren() - 1; j >= 0; j--)
+        OP_Network* geo = (OP_Network*)obj->findNode("geo");
+        if (geo)
         {
-            subnetwork->destroyNode(subnetwork->getChild(j));
+            for (int j = geo->getNchildren() - 1; j >= 0; j--)
+            {
+                geo->destroyNode(geo->getChild(j));
+            }
         }
     }
 }
