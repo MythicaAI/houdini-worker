@@ -2,6 +2,7 @@
 #include "houdini_session.h"
 #include "stream_writer.h"
 #include "types.h"
+#include "util.h"
 
 #include <OP/OP_Director.h>
 #include <OP/OP_OTLLibrary.h>
@@ -133,13 +134,12 @@ static OP_Node* create_node(MOT_Director* director, const std::string& node_type
     return node;
 }
 
-static OP_Node* find_node(MOT_Director* director, StreamWriter& writer)
+static OP_Node* find_node(MOT_Director* director)
 {
     // Find the root /obj network
     OP_Network* obj = (OP_Network*)director->findNode("/obj");
     if (!obj)
     {
-        writer.error("Failed to find obj network");
         return nullptr;
     }
     assert(obj->getNchildren() == 0 || obj->getNchildren() == 1);
@@ -148,7 +148,6 @@ static OP_Node* find_node(MOT_Director* director, StreamWriter& writer)
     OP_Network* geo = (OP_Network*)obj->findNode("geo");
     if (!geo)
     {
-        writer.error("Failed to find existing geo node");
         return nullptr;
     }
 
@@ -156,7 +155,6 @@ static OP_Node* find_node(MOT_Director* director, StreamWriter& writer)
     OP_Node* node = geo->findNode(SOP_NODE_TYPE);
     if (!node)
     {
-        writer.error("Failed to find existing sop node");
         return nullptr;
     }
 
@@ -403,20 +401,18 @@ void cleanup_session(MOT_Director* director)
 
 bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
 {
-    // Create or re-use the node
+    // Try to re-use an existing node
     OP_Node* node = nullptr;
     if (can_incremental_cook(session.m_state, request))
     {
-        // Find the existing node
-        node = find_node(session.m_director, writer);
+        node = find_node(session.m_director);
         if (!node)
         {
-            cleanup_session(session.m_director);
-            session.m_state = CookRequest();
-            return false;
+            util::log() << "Failed to find existing node" << std::endl;
         }
     }
-    else
+
+    if (!node)
     {
         cleanup_session(session.m_director);
         session.m_state = CookRequest();
