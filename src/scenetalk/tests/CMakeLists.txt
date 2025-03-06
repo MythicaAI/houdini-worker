@@ -14,6 +14,10 @@ set(TEST_SOURCES
         ../decoder.h
         ../decoder.cpp)
 
+file(GLOB QCBOR_SOURCES
+        "../../../third_party/qcbor/src/*.c")
+message("${QCBOR_SOURCES}")
+
 # Include the utest library from third_party
 include_directories(../../../third_party/)
 
@@ -21,11 +25,12 @@ include_directories(../../../third_party/)
 include_directories(..)
 
 # Add the test executable
-add_executable(test_buffer_pool ${TEST_SOURCES} test_buffer_pool.cpp)
+add_executable(test_buffer_pool ${TEST_SOURCES} ${QCBOR_SOURCES} test_buffer_pool.cpp)
+add_executable(test_frames ${TEST_SOURCES} ${QCBOR_SOURCES} test_frames.cpp)
 add_executable(test_file_ref ${TEST_SOURCES} test_file_ref.cpp)
-add_executable(test_net_buffer ${TEST_SOURCES} test_net_buffer.cpp)
-add_executable(test_encoder ${TEST_SOURCES} test_encoder.cpp)
-add_executable(test_decoder ${TEST_SOURCES} test_decoder.cpp)
+add_executable(test_net_buffer ${TEST_SOURCES} ${QCBOR_SOURCES} test_net_buffer.cpp)
+add_executable(test_encoder ${TEST_SOURCES} ${QCBOR_SOURCES} test_encoder.cpp)
+add_executable(test_decoder ${TEST_SOURCES} ${QCBOR_SOURCES} test_decoder.cpp)
 
 # Set up the test using the executable
 add_test(NAME test_buffer_pool COMMAND test_buffer_pool)

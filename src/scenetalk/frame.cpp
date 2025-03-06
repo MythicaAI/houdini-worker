@@ -14,23 +14,29 @@ uint16_t unpack_uint16_le(const uint8_t* data) {
     return static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
 }
 
-std::vector<uint8_t> frame::serialize() const {
-    std::vector<uint8_t> result;
-    result.reserve(FRAME_HEADER_SIZE + payload.size());
+bool frame::serialize(uint8_t *dest, size_t size) const {
+    // Calculate total required size
+    const size_t total_size = FRAME_HEADER_SIZE + payload.size();
+
+    // Check if destination buffer is large enough
+    if (total_size > size) {
+        return false;
+    }
 
     // Add type and flags
-    result.push_back(type);
-    result.push_back(flags);
+    size_t i = 0;
+    dest[i++] = type;
+    dest[i++] = flags;
 
     // Add payload length (little endian)
-    auto length_bytes = pack_uint16_le((uint16_t)payload.size());
-    result.push_back(length_bytes[0]);
-    result.push_back(length_bytes[1]);
+    auto length_bytes = pack_uint16_le(static_cast<uint16_t>(payload.size()));
+    dest[i++] = length_bytes[0];
+    dest[i++] = length_bytes[1];
 
     // Add payload
-    result.insert(result.end(), payload.begin(), payload.end());
+    std::copy(payload.begin(), payload.end(), dest + i);
 
-    return result;
+    return true;
 }
 
 std::optional<frame> frame::deserialize(const uint8_t* data, size_t size) {
@@ -50,10 +56,9 @@ std::optional<frame> frame::deserialize(const uint8_t* data, size_t size) {
     }
 
     // Extract payload
-    std::vector<uint8_t> payload(data + FRAME_HEADER_SIZE,
-                                data + FRAME_HEADER_SIZE + payload_length);
+    std::span<const uint8_t> payload(data + FRAME_HEADER_SIZE, payload_length);
 
-    return frame(frame_type, frame_flags, std::move(payload));
+    return frame(frame_type, frame_flags, payload);
 }
 
 } // namespace scene_talk

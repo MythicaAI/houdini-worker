@@ -3,10 +3,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 project(houdini_worker)
-file(GLOB SOURCES "*.cpp")
 set(executable_name scenetalk-ex)
 include_directories("../../third_party")
-add_executable(${executable_name} ${SOURCES}
+file(GLOB QCBOR_SOURCES "../../third_party/qcbor/src/*.c")
+add_executable(${executable_name}
         net_buffer.h
         encoder.h
         encoder.cpp
@@ -17,6 +17,7 @@ add_executable(${executable_name} ${SOURCES}
         buffer_pool.cpp
         frame.h
         decoder.h
-        decoder.cpp)
+        decoder.cpp
+        ${QCBOR_SOURCES})
 
 add_subdirectory(tests)

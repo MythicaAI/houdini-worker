@@ -17,10 +17,6 @@ using json = nlohmann::json;
 // Forward decl for FileRef
 class file_ref;
 
-/**
- * @brief Callback type for frame writing
- */
-using frame_writer = std::function<void(const frame&)>;
 
 /**
  * @brief Encodes protocol frames with CBOR payloads
@@ -33,22 +29,25 @@ public:
      * @param writer Callback for writing encoded frames
      * @param max_payload_size Maximum payload size
      */
-    explicit encoder(frame_writer writer, size_t max_payload_size = MAX_PAYLOAD_SIZE);
+    explicit encoder(
+        frame_writer writer,
+        size_t max_payload_size = MAX_PAYLOAD_SIZE,
+        int32_t max_depth = MAX_CONTEXT_DEPTH);
 
     /**
      * @brief Send a BEGIN frame
      */
-    void begin(const std::string& entity_type, const std::string& name, int depth);
+    void begin(const std::string& entity_type, const std::string& location);
 
     /**
      * @brief Send an END frame
      */
-    void end(int depth);
+    void end();
 
     /**
      * @brief Send an ATTRIBUTE frame
      */
-    void attr(const std::string& name, const std::string& attr_type, const json& value);
+    void attr(const std::string& name, const std::string& attr_type, const std::string& value);
 
     /**
      * @brief Send a PING-PONG frame
@@ -83,18 +82,28 @@ public:
     /**
      * @brief Send a HELLO frame
      */
-    void hello(const std::string& client,
-              const std::optional<std::string>& auth_token = std::nullopt);
+    void hello(
+        const std::string& client,
+        const std::optional<std::string>& auth_token = std::nullopt);
 
 private:
     /**
      * @brief Send a frame with CBOR-encoded payload
      */
-    void write_frame(uint8_t frame_type, const json& payload);
+    void write_frame(
+        uint8_t frame_type,
+        const std::span<const uint8_t>& payload);
+
+    void log_message(
+        const std::string_view &level,
+        const std::string &msg);
 
     frame_writer writer_;
     size_t max_payload_size_;
     uint32_t next_stream_id_;
+    int32_t depth_ = 0;
+    int32_t max_depth_ = 0;
+    uint8_t payload_buffer_[MAX_PAYLOAD_SIZE];
 };
 
 } // namespace scene_talk

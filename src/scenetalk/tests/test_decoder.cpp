@@ -261,7 +261,7 @@ UTEST(decoder, multiple_streams) {
     frame partial2_final = create_cbor_frame(PARTIAL, 0, partial_header2_final);
 
     std::vector<uint8_t> data2_final = {11, 12};
-    frame data2_final_frame(LOG, 1, data2_final);
+    frame data2_final_frame(ATTRIBUTE, 1, data2_final);
 
     // Process second stream completion
     dec.process_frame(partial2_final);
