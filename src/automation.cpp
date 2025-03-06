@@ -1,5 +1,6 @@
 #include "automation.h"
 #include "houdini_session.h"
+#include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
@@ -385,6 +386,8 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
 
 void cleanup_session(MOT_Director* director)
 {
+    rmt_ScopedCPUSample(CleanupSession, 0);
+
     OP_Network* obj = (OP_Network*)director->findNode("/obj");
     if (obj)
     {
@@ -401,59 +404,74 @@ void cleanup_session(MOT_Director* director)
 
 bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
 {
+    rmt_ScopedCPUSample(Cook, 0);
+
     // Try to re-use an existing node
     OP_Node* node = nullptr;
-    if (can_incremental_cook(session.m_state, request))
     {
-        node = find_node(session.m_director);
+        rmt_ScopedCPUSample(UpdateScene, 0);
+        if (can_incremental_cook(session.m_state, request))
+        {
+            node = find_node(session.m_director);
+            if (!node)
+            {
+                util::log() << "Failed to find existing node" << std::endl;
+            }
+        }
+
         if (!node)
         {
-            util::log() << "Failed to find existing node" << std::endl;
+            cleanup_session(session.m_director);
+            session.m_state = CookRequest();
+
+            // Install the library
+            std::string node_type = install_library(session.m_director, request.hda_file, request.definition_index, writer);
+            if (node_type.empty())
+            {
+                return false;
+            }
+
+            // Setup the node
+            node = create_node(session.m_director, node_type, writer);
+            if (!node)
+            {
+                return false;
+            }
+
+            set_inputs(node, request.inputs, writer);
         }
+
+        set_parameters(node, request.parameters);
+        session.m_state = request;
     }
-
-    if (!node)
-    {
-        cleanup_session(session.m_director);
-        session.m_state = CookRequest();
-
-        // Install the library
-        std::string node_type = install_library(session.m_director, request.hda_file, request.definition_index, writer);
-        if (node_type.empty())
-        {
-            return false;
-        }
-
-        // Setup the node
-        node = create_node(session.m_director, node_type, writer);
-        if (!node)
-        {
-            return false;
-        }
-
-        set_inputs(node, request.inputs, writer);
-    }
-
-    set_parameters(node, request.parameters);
-    session.m_state = request;
 
     // Cook the node
-    OP_Context context(0.0);
-    if (!node->cook(context))
     {
-        writer.error("Failed to cook node");
-        return false;
+        rmt_ScopedCPUSample(CookNode, 0);
+        OP_Context context(0.0);
+        if (!node->cook(context))
+        {
+            writer.error("Failed to cook node");
+            return false;
+        }
     }
 
     // Export results
     Geometry geo;
-    if (!export_geometry(node, geo, writer))
     {
-        writer.error("Failed to export geometry");
-        return false;
+        rmt_ScopedCPUSample(ExportGeometry, 0);
+        if (!export_geometry(node, geo, writer))
+        {
+            writer.error("Failed to export geometry");
+            return false;
+        }
     }
 
-    writer.geometry(geo);
+    // Write the geometry
+    {
+        rmt_ScopedCPUSample(WriteGeometry, 0);
+        writer.geometry(geo);
+    }
 
     return true;
 }

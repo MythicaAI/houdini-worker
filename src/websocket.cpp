@@ -1,3 +1,4 @@
+#include "Remotery.h"
 #include "util.h"
 #include "websocket.h"
 
@@ -64,6 +65,8 @@ static void websocket_thread(const WebSocketThreadConfig& config)
         StreamMessage response;
         while (config.m_queue.try_pop_response(response))
         {
+            rmt_ScopedCPUSample(SendResponse, 0);
+
             auto it = state.connection_map.find(response.connection_id);
             if (it != state.connection_map.end())
             {

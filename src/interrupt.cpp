@@ -1,4 +1,5 @@
 #include "interrupt.h"
+#include "Remotery.h"
 #include "stream_writer.h"
 
 void InterruptHandler::start(UT_Interrupt *intr,
@@ -6,6 +7,8 @@ void InterruptHandler::start(UT_Interrupt *intr,
     const UT_StringRef &main_optext,
     int priority)
 {
+    rmt_ScopedCPUSample(InterruptStart, 0);
+
     if (priority >= m_priority_threshold)
     {
         std::string message = msg.buildMessage().toStdString();
@@ -18,6 +21,8 @@ void InterruptHandler::push(UT_Interrupt *intr,
     const UT_StringRef &main_optext,
     int priority)
 {
+    rmt_ScopedCPUSample(InterruptPush, 0);
+
     if (priority >= m_priority_threshold)
     {
         std::string message = msg.buildMessage().toStdString();
@@ -41,6 +46,8 @@ void InterruptHandler::busyCheck(bool interrupted,
     float percent,
     float longpercent)
 {
+    rmt_ScopedCPUSample(InterruptBusyCheck, 0);
+
     m_writer.status("Progress: " + std::to_string(percent) + " " + std::to_string(longpercent));
 }
 
