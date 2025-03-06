@@ -1,11 +1,10 @@
 #pragma once
 
-class MOT_Director;
+class HoudiniSession;
 class CookRequest;
 class StreamWriter;
 
 namespace util
 {
-    bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer);
-    void cleanup_session(MOT_Director* boss);
+    bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer);
 }

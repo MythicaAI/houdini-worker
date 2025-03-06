@@ -27,7 +27,7 @@ static bool execute_automation(const std::string& message, HoudiniSession& sessi
 
     if (std::holds_alternative<CookRequest>(request))
     {
-        return util::cook(session.m_director, std::get<CookRequest>(request), writer);
+        return util::cook(session, std::get<CookRequest>(request), writer);
     }
     else if (std::holds_alternative<FileUploadRequest>(request))
     {
@@ -62,8 +62,6 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
     // Cleanup
     interrupt->setEnabled(false);
     interrupt->setInterruptHandler(nullptr);
-
-    util::cleanup_session(session.m_director);
 }
 
 int theMain(int argc, char *argv[])
