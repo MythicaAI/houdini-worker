@@ -108,7 +108,11 @@
 <div id="controlPanel">
   <div id="wsStatus" class="disconnected">Disconnected</div>
   <div id="generateTime" style="text-align: center; margin-bottom: 25px; font-size: 0.9em; color: #888;">
-    Last update: <span style="color: #e0e0e0; font-weight: 500;">19 ms</span>
+    <span>Last update: <span style="color: #e0e0e0; font-weight: 500;">19 ms</span></span>
+    <div style="float: right;">
+      <button id="showLogBtn" style="padding: 2px 8px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 3px;">Show Log</button>
+    </div>
+    <div style="clear: both;"></div>
   </div>
   <div style="background-color: #2d2d2d; padding: 8px; margin: -15px -15px 15px -15px; border-bottom: 1px solid #333;">
     <h3 style="margin: 0; text-align: center; color: #e0e0e0;">Parameters</h3>
@@ -144,6 +148,17 @@
 </div>
 <div id="renderContainer">
   <canvas id="renderCanvas" style="width: 100%; height: 100%;"></canvas>
+</div>
+<div id="logWindow" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+     width: 500px; max-height: 400px; background: #1e1e1e; border: 1px solid #333; z-index: 1000;
+     box-shadow: 0 0 20px rgba(0,0,0,0.5); color: #e0e0e0; overflow: hidden;">
+  <div style="position: sticky; top: 0; z-index: 1; background: #2d2d2d; border-bottom: 1px solid #333;">
+    <div style="display: flex; justify-content: space-between; padding: 10px 15px; position: relative;">
+      <button id="closeLogBtn" style="position: absolute; right: 15px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; padding: 2px 8px; border-radius: 3px;">Close</button>
+      <h3 style="margin: 0; width: 100%; text-align: center;">Generation Log</h3>
+    </div>
+  </div>
+  <div id="logContent" style="font-family: monospace; white-space: pre-wrap; padding: 15px; height: calc(400px - 45px); overflow-y: auto;"></div>
 </div>
 <script>
   const canvas = document.getElementById("renderCanvas");
@@ -205,6 +220,10 @@
       return;
     }
 
+    // Clear the status log at the start of each new generation
+    statusLog.length = 0;
+    updateLogContent();
+
     requestInFlight = true;
     requestStartTime = performance.now();
     const cookMessage = {
@@ -223,15 +242,33 @@
     ws.send(JSON.stringify(cookMessage));
   }
 
+  const statusLog = [];
+
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     console.log("received event: " + JSON.stringify(data));
+
+    // Log status messages without timestamps
+    if (data.op === "status") {
+        statusLog.push(data.data);
+        updateLogContent();
+    }
+
     if (data.op === "geometry") {
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {
         createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs);
         const generateTime = Math.round(performance.now() - requestStartTime);
-        document.getElementById('generateTime').textContent = `Generate time: ${generateTime} ms`;
+        document.getElementById('generateTime').innerHTML = `
+          <span>Last update: <span style="color: #e0e0e0; font-weight: 500;">${generateTime} ms</span></span>
+          <div style="float: right;">
+            <button id="showLogBtn" style="padding: 2px 8px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 3px;">Show Log</button>
+          </div>
+          <div style="clear: both;"></div>`;
+        // Reattach event listener since we recreated the button
+        document.getElementById('showLogBtn').addEventListener('click', () => {
+            document.getElementById('logWindow').style.display = 'block';
+        });
       }
 
       // Handle pending requests
@@ -299,6 +336,16 @@
       material.wireframe = document.getElementById("wireframeToggle").checked;
       plane.material = material;
     }
+  });
+
+  function updateLogContent() {
+    const logContent = document.getElementById('logContent');
+    logContent.textContent = statusLog.join('\n');
+    logContent.scrollTop = logContent.scrollHeight;
+  }
+
+  document.getElementById('closeLogBtn').addEventListener('click', () => {
+    document.getElementById('logWindow').style.display = 'none';
   });
 
   engine.runRenderLoop(() => {
