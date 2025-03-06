@@ -1,6 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 project(houdini_worker)
 
+# Remotery library
+add_library(remotery STATIC
+    third_party/remotery/Remotery.c
+)
+
+target_include_directories(remotery PUBLIC
+    third_party/remotery
+)
+
+target_compile_definitions(remotery PUBLIC
+    RMT_ENABLED=0
+)
+
 # Mongoose library
 add_library(mongoose STATIC
     third_party/mongoose/mongoose.c
@@ -34,6 +47,7 @@ target_link_libraries(${executable_name}
     Houdini
     HoudiniThirdParty
     mongoose
+    remotery
     ${JEMALLOC_LIB}
 )
 

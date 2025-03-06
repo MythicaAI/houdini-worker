@@ -1,4 +1,5 @@
 #include "file_cache.h"
+#include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
@@ -151,6 +152,8 @@ static bool parse_file_upload_request(const UT_JSONValue* data, FileUploadReques
 
 bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache, StreamWriter& writer)
 {
+    rmt_ScopedCPUSample(ParseRequest, 0);
+
     // Parse message type
     UT_JSONValue root;
     if (!root.parseValue(message) || !root.isMap())

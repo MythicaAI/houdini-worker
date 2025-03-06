@@ -2,6 +2,7 @@
 #include "interrupt.h"
 #include "file_cache.h"
 #include "houdini_session.h"
+#include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
@@ -74,6 +75,9 @@ int theMain(int argc, char *argv[])
 
     const int port = std::stoi(argv[1]);
 
+    Remotery* rmt;
+    rmt_CreateGlobalInstance(&rmt);
+
     // Initialize Houdini
     FileCache file_cache;
     HoudiniSession session;
@@ -87,11 +91,13 @@ int theMain(int argc, char *argv[])
         StreamMessage message;
         if (websocket.try_pop_request(message, 1000))
         {
+            rmt_ScopedCPUSample(ProcessRequest, 0);
             StreamWriter writer(websocket, message.connection_id);
             process_message(session, file_cache, message.message, writer);
         }
     }
 
+    rmt_DestroyGlobalInstance(rmt);
     return 0;
 }
 
