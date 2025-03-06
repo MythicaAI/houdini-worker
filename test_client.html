@@ -102,6 +102,21 @@
     .toggle-container input[type="checkbox"]:checked + label .toggle-switch::after {
       transform: translateX(20px);
     }
+    .download-btn {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 12px;
+      background: #333;
+      border: 1px solid #555;
+      color: #e0e0e0;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .download-btn:hover {
+      background: #444;
+    }
   </style>
 </head>
 <body>
@@ -144,6 +159,16 @@
       <span class="toggle-switch"></span>
       Wireframe
     </label>
+  </div>
+
+  <div style="margin-top: 80px;">
+    <div style="background-color: #2d2d2d; padding: 8px; margin: -15px -15px 15px -15px; border-bottom: 1px solid #333;">
+      <h3 style="margin: 0; text-align: center; color: #e0e0e0;">Export</h3>
+    </div>
+    <button class="download-btn" onclick="downloadFormat('fbx')">Download FBX</button>
+    <button class="download-btn" onclick="downloadFormat('usd')">Download USD</button>
+    <button class="download-btn" onclick="downloadFormat('glb')">Download GLB</button>
+    <button class="download-btn" onclick="downloadFormat('obj')">Download OBJ</button>
   </div>
 </div>
 <div id="renderContainer">
