@@ -5,12 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Babylon.js Scene</title>
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      height: 100vh;
+    }
+    #controlPanel {
+      width: 250px;
+      padding: 15px;
+      background-color: #f0f0f0;
+      border-right: 1px solid #ccc;
+      overflow-y: auto;
+    }
+    #renderContainer {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .slider-container {
+      margin-bottom: 15px;
+    }
+    .slider-container label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .slider-value {
+      display: inline-block;
+      width: 40px;
+      text-align: right;
+    }
+  </style>
 </head>
 <body>
-<div style="text-align: center; margin-top: 10px;">
-  <button id="wireframeButton">Toggle Wireframe</button>
+<div id="controlPanel">
+  <h3>Parameters</h3>
+  <div class="slider-container">
+    <label for="lengthSlider">Length: <span id="lengthValue" class="slider-value">2.5</span></label>
+    <input type="range" id="lengthSlider" min="0.5" max="5" step="0.1" value="2.5">
+  </div>
+  <div class="slider-container">
+    <label for="radiusSlider">Radius: <span id="radiusValue" class="slider-value">0.6</span></label>
+    <input type="range" id="radiusSlider" min="0.1" max="2" step="0.1" value="0.6">
+  </div>
+  <div class="slider-container">
+    <label for="numsidesSlider">Num Sides: <span id="numsidesValue" class="slider-value">6</span></label>
+    <input type="range" id="numsidesSlider" min="3" max="12" step="1" value="6">
+  </div>
+  <div style="margin-top: 20px;">
+    <button id="wireframeButton">Toggle Wireframe</button>
+  </div>
 </div>
-<canvas id="renderCanvas" style="width: 100%; height: 100vh;"></canvas>
+<div id="renderContainer">
+  <canvas id="renderCanvas" style="width: 100%; height: 100%;"></canvas>
+</div>
 <script>
   const canvas = document.getElementById("renderCanvas");
   const engine = new BABYLON.Engine(canvas, true);
@@ -28,36 +77,58 @@
   const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
   plane.receiveShadows = true;
 
-  const myMaterial = new BABYLON.StandardMaterial("myMaterial", scene);
-  myMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
-  myMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_nor_gl_1k.png", scene);
-  myMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+  const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+  groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.png", scene);
+  groundMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_nor_gl_1k.png", scene);
+  groundMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+  plane.material = groundMaterial;
+
+  const objectMaterial = new BABYLON.StandardMaterial("objectMaterial", scene);
+  objectMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
+  objectMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_nor_gl_1k.png", scene);
+  objectMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+
+  const paramValues = {
+    length: 2.5,
+    radius: 0.6,
+    numsides: 6
+  };
+
+  // Request state tracking
+  let requestInFlight = false;
+  let pendingRequest = false;
 
   // WebSocket setup
   const ws = new WebSocket("ws://localhost:8765");
 
   ws.onopen = (event) => {
-    console.log("connected to socket")
-    const testMessage = {
+    console.log("connected to socket");
+    regenerateMesh();
+  }
+
+  function regenerateMesh() {
+    if (requestInFlight) {
+      pendingRequest = true;
+      return;
+    }
+
+    requestInFlight = true;
+    const cookMessage = {
       "op": "cook",
       "data": {
         "hda_path": {
           "file_id": "file_xxx",
-          "file_path": "assets/test_cube.hda"
+          "file_path": "assets/mythica.crystal.1.0.hda"
         },
         "definition_index": 0,
-        "input0": {
-          "file_id": "file_xxx",
-          "file_path": "assets/cube.usdz"
-        },
-        "test_int": 5,
-        "test_float": 2.0,
-        "test_string": "test",
-        "test_bool": true
+        "length": paramValues.length,
+        "radius": paramValues.radius,
+        "numsides": paramValues.numsides
       }
     };
-    ws.send(JSON.stringify(testMessage));
+    ws.send(JSON.stringify(cookMessage));
   }
+
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     console.log("received event: " + JSON.stringify(data));
@@ -65,6 +136,13 @@
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {
         createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs);
+      }
+
+      // Handle pending requests
+      requestInFlight = false;
+      if (pendingRequest) {
+        pendingRequest = false;
+        regenerateMesh();
       }
     }
   };
@@ -75,6 +153,8 @@
       customMesh.dispose();
     }
     customMesh = new BABYLON.Mesh("customMesh", scene);
+    customMesh.material = objectMaterial;
+
     const vertexData = new BABYLON.VertexData();
 
     vertexData.positions = vertices;
@@ -83,8 +163,29 @@
     vertexData.uvs = uvs;
 
     vertexData.applyToMesh(customMesh);
-    customMesh.material = myMaterial;
   };
+
+  // Slider event listeners
+  document.getElementById("lengthSlider").addEventListener("input", (e) => {
+    const value = parseFloat(e.target.value);
+    document.getElementById("lengthValue").textContent = value.toFixed(1);
+    paramValues.length = value;
+    regenerateMesh();
+  });
+
+  document.getElementById("radiusSlider").addEventListener("input", (e) => {
+    const value = parseFloat(e.target.value);
+    document.getElementById("radiusValue").textContent = value.toFixed(1);
+    paramValues.radius = value;
+    regenerateMesh();
+  });
+
+  document.getElementById("numsidesSlider").addEventListener("input", (e) => {
+    const value = parseInt(e.target.value);
+    document.getElementById("numsidesValue").textContent = value;
+    paramValues.numsides = value;
+    regenerateMesh();
+  });
 
   // Toggle wireframe mode
   document.getElementById("wireframeButton").addEventListener("click", () => {
