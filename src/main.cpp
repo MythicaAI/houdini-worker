@@ -1,6 +1,7 @@
 #include "automation.h"
 #include "interrupt.h"
 #include "file_cache.h"
+#include "houdini_session.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
@@ -15,7 +16,7 @@
 
 static const int COOK_TIMEOUT_SECONDS = 60;
 
-static bool execute_automation(const std::string& message, MOT_Director* boss, FileCache& file_cache, StreamWriter& writer)
+static bool execute_automation(const std::string& message, HoudiniSession& session, FileCache& file_cache, StreamWriter& writer)
 {
     WorkerRequest request;
     if (!util::parse_request(message, request, file_cache, writer))
@@ -26,7 +27,7 @@ static bool execute_automation(const std::string& message, MOT_Director* boss, F
 
     if (std::holds_alternative<CookRequest>(request))
     {
-        return util::cook(boss, std::get<CookRequest>(request), writer);
+        return util::cook(session.m_director, std::get<CookRequest>(request), writer);
     }
     else if (std::holds_alternative<FileUploadRequest>(request))
     {
@@ -37,7 +38,7 @@ static bool execute_automation(const std::string& message, MOT_Director* boss, F
     return false;
 }
 
-static void process_message(MOT_Director* boss, FileCache& file_cache, const std::string& message, StreamWriter& writer)
+static void process_message(HoudiniSession& session, FileCache& file_cache, const std::string& message, StreamWriter& writer)
 {
     // Setup interrupt handler
     InterruptHandler interruptHandler(writer);
@@ -50,7 +51,7 @@ static void process_message(MOT_Director* boss, FileCache& file_cache, const std
     writer.state(AutomationState::Start);
 
     auto start_time = std::chrono::high_resolution_clock::now();
-    bool result = execute_automation(message, boss, file_cache, writer);
+    bool result = execute_automation(message, session, file_cache, writer);
     auto end_time = std::chrono::high_resolution_clock::now();
 
     writer.state(AutomationState::End);
@@ -62,7 +63,7 @@ static void process_message(MOT_Director* boss, FileCache& file_cache, const std
     interrupt->setEnabled(false);
     interrupt->setInterruptHandler(nullptr);
 
-    util::cleanup_session(boss);
+    util::cleanup_session(session.m_director);
 }
 
 int theMain(int argc, char *argv[])
@@ -76,11 +77,8 @@ int theMain(int argc, char *argv[])
     const int port = std::stoi(argv[1]);
 
     // Initialize Houdini
-    MOT_Director* boss = new MOT_Director("standalone");
-    OPsetDirector(boss);
-    PIcreateResourceManager();
-
     FileCache file_cache;
+    HoudiniSession session;
 
     // Initialize websocket server
     WebSocket websocket("0.0.0.0", port);
@@ -92,7 +90,7 @@ int theMain(int argc, char *argv[])
         if (websocket.try_pop_request(message, 1000))
         {
             StreamWriter writer(websocket, message.connection_id);
-            process_message(boss, file_cache, message.message, writer);
+            process_message(session, file_cache, message.message, writer);
         }
     }
 

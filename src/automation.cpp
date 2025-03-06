@@ -14,10 +14,10 @@
 namespace util
 {
 
-static std::string install_library(MOT_Director* boss, const std::string& hda_file, int definition_index, StreamWriter& writer)
+static std::string install_library(MOT_Director* director, const std::string& hda_file, int definition_index, StreamWriter& writer)
 {
     // Load the library
-    OP_OTLManager& manager = boss->getOTLManager();
+    OP_OTLManager& manager = director->getOTLManager();
 
     int library_index = manager.findLibrary(hda_file.c_str());
     if (library_index < 0)
@@ -68,10 +68,10 @@ static std::string install_library(MOT_Director* boss, const std::string& hda_fi
     return node_type;
 }
 
-static OP_Node* create_node(MOT_Director* boss, const std::string& node_type, StreamWriter& writer)
+static OP_Node* create_node(MOT_Director* director, const std::string& node_type, StreamWriter& writer)
 {
     // Find the root /obj network
-    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
+    OP_Network* obj = (OP_Network*)director->findNode("/obj");
     if (!obj)
     {
         writer.error("Failed to find obj network");
@@ -325,17 +325,17 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
     return true;
 }
 
-bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
+bool cook(MOT_Director* director, const CookRequest& request, StreamWriter& writer)
 {
     // Install the library
-    std::string node_type = install_library(boss, request.hda_file, request.definition_index, writer);
+    std::string node_type = install_library(director, request.hda_file, request.definition_index, writer);
     if (node_type.empty())
     {
         return false;
     }
 
     // Setup the node
-    OP_Node* node = create_node(boss, node_type, writer);
+    OP_Node* node = create_node(director, node_type, writer);
     if (!node)
     {
         return false;
@@ -365,9 +365,9 @@ bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
     return true;
 }
 
-void cleanup_session(MOT_Director* boss)
+void cleanup_session(MOT_Director* director)
 {
-    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
+    OP_Network* obj = (OP_Network*)director->findNode("/obj");
     if (obj)
     {
         OP_Network* geo = (OP_Network*)obj->findNode("geo");
