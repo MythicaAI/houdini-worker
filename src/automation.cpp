@@ -1,6 +1,8 @@
 #include "automation.h"
+#include "houdini_session.h"
 #include "stream_writer.h"
 #include "types.h"
+#include "util.h"
 
 #include <OP/OP_Director.h>
 #include <OP/OP_OTLLibrary.h>
@@ -8,16 +10,45 @@
 #include <GU/GU_Detail.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
+
+constexpr const char* SOP_NODE_TYPE = "sop";
 
 namespace util
 {
 
-static std::string install_library(MOT_Director* boss, const std::string& hda_file, int definition_index, StreamWriter& writer)
+static bool can_incremental_cook(const CookRequest& previous, const CookRequest& current)
+{
+    if (previous.hda_file != current.hda_file)
+    {
+        return false;
+    }
+
+    if (previous.definition_index != current.definition_index)
+    {
+        return false;
+    }
+
+    if (previous.inputs != current.inputs)
+    {
+        return false;
+    }
+
+    if (previous.parameters.size() != current.parameters.size())
+    {
+        return false;
+    }
+
+    auto same_key = [](const auto& entryA, const auto& entryB) { return entryA.first == entryB.first; };
+    return std::equal(previous.parameters.begin(), previous.parameters.end(), current.parameters.begin(), same_key);
+}
+
+static std::string install_library(MOT_Director* director, const std::string& hda_file, int definition_index, StreamWriter& writer)
 {
     // Load the library
-    OP_OTLManager& manager = boss->getOTLManager();
+    OP_OTLManager& manager = director->getOTLManager();
 
     int library_index = manager.findLibrary(hda_file.c_str());
     if (library_index < 0)
@@ -68,10 +99,10 @@ static std::string install_library(MOT_Director* boss, const std::string& hda_fi
     return node_type;
 }
 
-static OP_Node* create_node(MOT_Director* boss, const std::string& node_type, StreamWriter& writer)
+static OP_Node* create_node(MOT_Director* director, const std::string& node_type, StreamWriter& writer)
 {
     // Find the root /obj network
-    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
+    OP_Network* obj = (OP_Network*)director->findNode("/obj");
     if (!obj)
     {
         writer.error("Failed to find obj network");
@@ -93,10 +124,37 @@ static OP_Node* create_node(MOT_Director* boss, const std::string& node_type, St
     assert(geo->getNchildren() == 0);
 
     // Create the SOP node
-    OP_Node* node = geo->createNode(node_type.c_str());
+    OP_Node* node = geo->createNode(node_type.c_str(), SOP_NODE_TYPE);
     if (!node || !node->runCreateScript())
     {
         writer.error("Failed to create node of type: " + node_type);
+        return nullptr;
+    }
+
+    return node;
+}
+
+static OP_Node* find_node(MOT_Director* director)
+{
+    // Find the root /obj network
+    OP_Network* obj = (OP_Network*)director->findNode("/obj");
+    if (!obj)
+    {
+        return nullptr;
+    }
+    assert(obj->getNchildren() == 0 || obj->getNchildren() == 1);
+
+    // Find existing geo node
+    OP_Network* geo = (OP_Network*)obj->findNode("geo");
+    if (!geo)
+    {
+        return nullptr;
+    }
+
+    // Find the existing SOP node
+    OP_Node* node = geo->findNode(SOP_NODE_TYPE);
+    if (!node)
+    {
         return nullptr;
     }
 
@@ -325,24 +383,59 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
     return true;
 }
 
-bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
+void cleanup_session(MOT_Director* director)
 {
-    // Install the library
-    std::string node_type = install_library(boss, request.hda_file, request.definition_index, writer);
-    if (node_type.empty())
+    OP_Network* obj = (OP_Network*)director->findNode("/obj");
+    if (obj)
     {
-        return false;
+        OP_Network* geo = (OP_Network*)obj->findNode("geo");
+        if (geo)
+        {
+            for (int j = geo->getNchildren() - 1; j >= 0; j--)
+            {
+                geo->destroyNode(geo->getChild(j));
+            }
+        }
+    }
+}
+
+bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
+{
+    // Try to re-use an existing node
+    OP_Node* node = nullptr;
+    if (can_incremental_cook(session.m_state, request))
+    {
+        node = find_node(session.m_director);
+        if (!node)
+        {
+            util::log() << "Failed to find existing node" << std::endl;
+        }
     }
 
-    // Setup the node
-    OP_Node* node = create_node(boss, node_type, writer);
     if (!node)
     {
-        return false;
+        cleanup_session(session.m_director);
+        session.m_state = CookRequest();
+
+        // Install the library
+        std::string node_type = install_library(session.m_director, request.hda_file, request.definition_index, writer);
+        if (node_type.empty())
+        {
+            return false;
+        }
+
+        // Setup the node
+        node = create_node(session.m_director, node_type, writer);
+        if (!node)
+        {
+            return false;
+        }
+
+        set_inputs(node, request.inputs, writer);
     }
 
-    set_inputs(node, request.inputs, writer);
     set_parameters(node, request.parameters);
+    session.m_state = request;
 
     // Cook the node
     OP_Context context(0.0);
@@ -365,20 +458,5 @@ bool cook(MOT_Director* boss, const CookRequest& request, StreamWriter& writer)
     return true;
 }
 
-void cleanup_session(MOT_Director* boss)
-{
-    OP_Network* obj = (OP_Network*)boss->findNode("/obj");
-    if (obj)
-    {
-        OP_Network* geo = (OP_Network*)obj->findNode("geo");
-        if (geo)
-        {
-            for (int j = geo->getNchildren() - 1; j >= 0; j--)
-            {
-                geo->destroyNode(geo->getChild(j));
-            }
-        }
-    }
 }
 
-}
