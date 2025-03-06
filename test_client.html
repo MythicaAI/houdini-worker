@@ -15,9 +15,10 @@
     #controlPanel {
       width: 250px;
       padding: 15px;
-      background-color: #f0f0f0;
-      border-right: 1px solid #ccc;
+      background-color: #1e1e1e;
+      border-right: 1px solid #333;
       overflow-y: auto;
+      color: #e0e0e0;
     }
     #renderContainer {
       flex: 1;
@@ -30,17 +31,86 @@
     .slider-container label {
       display: block;
       margin-bottom: 5px;
+      color: #e0e0e0;
+    }
+    .slider-container input[type="range"] {
+      width: 100%;
+      margin: 0;
     }
     .slider-value {
       display: inline-block;
       width: 40px;
       text-align: right;
     }
+    #wsStatus {
+      position: relative;
+      margin-bottom: 15px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .connected {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .disconnected {
+      background-color: #f44336;
+      color: white;
+    }
+    .toggle-container {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .toggle-container input[type="checkbox"] {
+      display: none;
+    }
+    .toggle-container label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      color: #e0e0e0;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      background-color: #484848;
+      border-radius: 20px;
+      margin-right: 10px;
+      transition: background-color 0.3s;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: white;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+    }
+    .toggle-container input[type="checkbox"]:checked + label .toggle-switch {
+      background-color: #4CAF50;
+    }
+    .toggle-container input[type="checkbox"]:checked + label .toggle-switch::after {
+      transform: translateX(20px);
+    }
   </style>
 </head>
 <body>
 <div id="controlPanel">
-  <h3>Parameters</h3>
+  <div id="wsStatus" class="disconnected">Disconnected</div>
+  <div id="generateTime" style="text-align: center; margin-bottom: 25px; font-size: 0.9em; color: #888;">
+    Last update: <span style="color: #e0e0e0; font-weight: 500;">19 ms</span>
+  </div>
+  <div style="background-color: #2d2d2d; padding: 8px; margin: -15px -15px 15px -15px; border-bottom: 1px solid #333;">
+    <h3 style="margin: 0; text-align: center; color: #e0e0e0;">Parameters</h3>
+  </div>
   <div class="slider-container">
     <label for="lengthSlider">Length: <span id="lengthValue" class="slider-value">2.5</span></label>
     <input type="range" id="lengthSlider" min="0.5" max="5" step="0.1" value="2.5">
@@ -53,8 +123,12 @@
     <label for="numsidesSlider">Num Sides: <span id="numsidesValue" class="slider-value">6</span></label>
     <input type="range" id="numsidesSlider" min="3" max="12" step="1" value="6">
   </div>
-  <div style="margin-top: 20px;">
-    <button id="wireframeButton">Toggle Wireframe</button>
+  <div class="toggle-container">
+    <input type="checkbox" id="wireframeToggle">
+    <label for="wireframeToggle">
+      <span class="toggle-switch"></span>
+      Wireframe
+    </label>
   </div>
 </div>
 <div id="renderContainer">
@@ -97,14 +171,22 @@
   // Request state tracking
   let requestInFlight = false;
   let pendingRequest = false;
+  let requestStartTime;
 
   // WebSocket setup
   const ws = new WebSocket("ws://localhost:8765");
 
   ws.onopen = (event) => {
     console.log("connected to socket");
+    document.getElementById('wsStatus').className = 'connected';
+    document.getElementById('wsStatus').textContent = 'Connected';
     regenerateMesh();
   }
+
+  ws.onclose = () => {
+    document.getElementById('wsStatus').className = 'disconnected';
+    document.getElementById('wsStatus').textContent = 'Disconnected';
+  };
 
   function regenerateMesh() {
     if (requestInFlight) {
@@ -113,6 +195,7 @@
     }
 
     requestInFlight = true;
+    requestStartTime = performance.now();
     const cookMessage = {
       "op": "cook",
       "data": {
@@ -136,6 +219,8 @@
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {
         createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs);
+        const generateTime = Math.round(performance.now() - requestStartTime);
+        document.getElementById('generateTime').textContent = `Generate time: ${generateTime} ms`;
       }
 
       // Handle pending requests
@@ -188,19 +273,19 @@
   });
 
   // Toggle wireframe mode
-  document.getElementById("wireframeButton").addEventListener("click", () => {
+  document.getElementById("wireframeToggle").addEventListener("change", () => {
     if (customMesh && customMesh.material) {
-      customMesh.material.wireframe = !customMesh.material.wireframe;
+      customMesh.material.wireframe = document.getElementById("wireframeToggle").checked;
     } else if (customMesh) {
       const material = new BABYLON.StandardMaterial("wireframeMaterial", scene);
-      material.wireframe = true;
+      material.wireframe = document.getElementById("wireframeToggle").checked;
       customMesh.material = material;
     }
     if (plane && plane.material) {
-      plane.material.wireframe = !plane.material.wireframe;
+      plane.material.wireframe = document.getElementById("wireframeToggle").checked;
     } else if (plane) {
       const material = new BABYLON.StandardMaterial("wireframeMaterial", scene);
-      material.wireframe = true;
+      material.wireframe = document.getElementById("wireframeToggle").checked;
       plane.material = material;
     }
   });
