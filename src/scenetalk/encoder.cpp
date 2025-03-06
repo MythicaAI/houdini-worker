@@ -132,10 +132,6 @@ void encoder::warning(const std::string& msg) {
 }
 
 void encoder::file(const file_ref& file_ref, bool status) {
-    json payload = file_ref.to_json();
-    payload["status"] = status;
-
-    write_frame(FILE_REF, payload);
 }
 
 void encoder::hello(const std::string& client, const std::optional<std::string>& auth_token) {

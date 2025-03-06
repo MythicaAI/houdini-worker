@@ -22,12 +22,14 @@ include_directories(..)
 
 # Add the test executable
 add_executable(test_buffer_pool ${TEST_SOURCES} test_buffer_pool.cpp)
+add_executable(test_file_ref ${TEST_SOURCES} test_file_ref.cpp)
 add_executable(test_net_buffer ${TEST_SOURCES} test_net_buffer.cpp)
 add_executable(test_encoder ${TEST_SOURCES} test_encoder.cpp)
 add_executable(test_decoder ${TEST_SOURCES} test_decoder.cpp)
 
 # Set up the test using the executable
 add_test(NAME test_buffer_pool COMMAND test_buffer_pool)
+add_test(NAME test_file_ref COMMAND test_file_ref)
 add_test(NAME test_net_buffer COMMAND test_net_buffer)
 add_test(NAME test_encoder COMMAND test_encoder)
 add_test(NAME test_decoder COMMAND test_decoder)
