@@ -77,10 +77,16 @@
   const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
   plane.receiveShadows = true;
 
-  const myMaterial = new BABYLON.StandardMaterial("myMaterial", scene);
-  myMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
-  myMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_nor_gl_1k.png", scene);
-  myMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+  const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+  groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.png", scene);
+  groundMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_nor_gl_1k.png", scene);
+  groundMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+  plane.material = groundMaterial;
+
+  const objectMaterial = new BABYLON.StandardMaterial("objectMaterial", scene);
+  objectMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
+  objectMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_nor_gl_1k.png", scene);
+  objectMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
 
   const paramValues = {
     length: 2.5,
@@ -147,6 +153,8 @@
       customMesh.dispose();
     }
     customMesh = new BABYLON.Mesh("customMesh", scene);
+    customMesh.material = objectMaterial;
+
     const vertexData = new BABYLON.VertexData();
 
     vertexData.positions = vertices;
@@ -155,7 +163,6 @@
     vertexData.uvs = uvs;
 
     vertexData.applyToMesh(customMesh);
-    customMesh.material = myMaterial;
   };
 
   // Slider event listeners
