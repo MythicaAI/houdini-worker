@@ -187,6 +187,20 @@
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
 
+  scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/textures/country.env", scene);
+  scene.clearColor = new BABYLON.Color4(1.0, 1.0, 1.0, 1.0);
+
+  // Create a skydome
+  const skydome = BABYLON.MeshBuilder.CreateBox("sky", { size: 10000, sideOrientation: BABYLON.Mesh.BACKSIDE }, scene);
+  skydome.position.y = 500;
+  skydome.isPickable = false;
+
+  const sky = new BABYLON.BackgroundMaterial("skyMaterial", scene);
+  sky.reflectionTexture = scene.environmentTexture.clone();
+  sky.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+  sky.alpha = 0.5;
+  skydome.material = sky;
+
   // Create a camera
   const camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 4, Math.PI / 4, 10, BABYLON.Vector3.Zero(), scene);
   camera.attachControl(canvas, true);
@@ -196,8 +210,7 @@
   light.intensity = 0.7;
 
   // Create a plane
-  const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
-  plane.receiveShadows = true;
+  const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 20, height: 20 }, scene);
 
   const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
   groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.png", scene);
