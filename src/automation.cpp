@@ -5,7 +5,6 @@
 #include "types.h"
 #include "util.h"
 
-#include <FBX/FBX_Translator.h>
 #include <OP/OP_Director.h>
 #include <OP/OP_OTLLibrary.h>
 #include <GEO/GEO_Primitive.h>
