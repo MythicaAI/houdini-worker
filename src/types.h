@@ -36,12 +36,20 @@ using Parameter = std::variant<
 >;
 using ParameterSet = std::map<std::string, Parameter>;
 
+enum class EOutputFormat
+{
+    INVALID,
+    RAW,
+    OBJ
+};
+
 struct CookRequest
 {
     std::string hda_file;
     int64_t definition_index;
     std::map<int, std::string> inputs;
     ParameterSet parameters;
+    EOutputFormat format;
 };
 
 struct FileUploadRequest

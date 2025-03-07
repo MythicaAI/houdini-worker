@@ -102,6 +102,21 @@
     .toggle-container input[type="checkbox"]:checked + label .toggle-switch::after {
       transform: translateX(20px);
     }
+    .download-btn {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 12px;
+      background: #333;
+      border: 1px solid #555;
+      color: #e0e0e0;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .download-btn:hover {
+      background: #444;
+    }
   </style>
 </head>
 <body>
@@ -144,6 +159,13 @@
       <span class="toggle-switch"></span>
       Wireframe
     </label>
+  </div>
+
+  <div style="margin-top: 80px;">
+    <div style="background-color: #2d2d2d; padding: 8px; margin: -15px -15px 15px -15px; border-bottom: 1px solid #333;">
+      <h3 style="margin: 0; text-align: center; color: #e0e0e0;">Export</h3>
+    </div>
+    <button class="download-btn" onclick="downloadFormat('obj')">Download OBJ</button>
   </div>
 </div>
 <div id="renderContainer">
@@ -214,7 +236,7 @@
     document.getElementById('wsStatus').textContent = 'Disconnected';
   };
 
-  function regenerateMesh() {
+  function regenerateMesh(format = "raw") {
     if (requestInFlight) {
       pendingRequest = true;
       return;
@@ -234,12 +256,17 @@
           "file_path": "assets/mythica.crystal.1.0.hda"
         },
         "definition_index": 0,
+        "format": format,
         "length": paramValues.length,
         "radius": paramValues.radius,
         "numsides": paramValues.numsides
       }
     };
     ws.send(JSON.stringify(cookMessage));
+  }
+
+  function downloadFormat(format) {
+    regenerateMesh(format);
   }
 
   const statusLog = [];
@@ -254,11 +281,43 @@
         updateLogContent();
     }
 
+    if (data.op === "file") {
+      const file_name = data.data.file_name;
+      const base64Str = data.data.content_base64;
+
+      // Decode the Base64 string into a binary string.
+      const binaryStr = atob(base64Str);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+
+      // Trigger a file download
+      const blob = new Blob([bytes], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      handleRequestComplete();
+    }
+
     if (data.op === "geometry") {
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {
         createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs);
-        const generateTime = Math.round(performance.now() - requestStartTime);
+      }
+      handleRequestComplete();
+    }
+  };
+
+  function handleRequestComplete() {
+    const generateTime = Math.round(performance.now() - requestStartTime);
         document.getElementById('generateTime').innerHTML = `
           <span>Last update: <span style="color: #e0e0e0; font-weight: 500;">${generateTime} ms</span></span>
           <div style="float: right;">
@@ -269,16 +328,13 @@
         document.getElementById('showLogBtn').addEventListener('click', () => {
             document.getElementById('logWindow').style.display = 'block';
         });
-      }
 
-      // Handle pending requests
-      requestInFlight = false;
-      if (pendingRequest) {
-        pendingRequest = false;
-        regenerateMesh();
-      }
+    requestInFlight = false;
+    if (pendingRequest) {
+      pendingRequest = false;
+      regenerateMesh();
     }
-  };
+  }
 
   let customMesh = null;
   const createMeshFromData = (vertices, indices, normals, uvs) => {

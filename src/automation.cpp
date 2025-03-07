@@ -8,6 +8,7 @@
 #include <OP/OP_Director.h>
 #include <OP/OP_OTLLibrary.h>
 #include <GEO/GEO_Primitive.h>
+#include <GEO/GEO_IOTranslator.h>
 #include <GU/GU_Detail.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
@@ -276,22 +277,9 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
     }
 }
 
-bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
+bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& writer)
 {
-    SOP_Node* sop = node->castToSOPNode();
-    if (!sop)
-    {
-        writer.error("Node is not a SOP node");
-        return false;
-    }
-
-    OP_Context context(0.0);
-    const GU_Detail* gdp = sop->getCookedGeo(context);
-    if (!gdp)
-    {
-        writer.error("Failed to get cooked geometry");
-        return false;
-    }
+    rmt_ScopedCPUSample(ExportGeometryRaw, 0);
 
     GA_ROHandleV3 P_handle(gdp, GA_ATTRIB_POINT, "P");
     if (!P_handle.isValid())
@@ -384,6 +372,86 @@ bool export_geometry(OP_Node* node, Geometry& geom, StreamWriter& writer)
     return true;
 }
 
+bool export_geometry_obj(const GU_Detail* gdp, std::vector<char>& file_data, StreamWriter& writer)
+{
+    rmt_ScopedCPUSample(ExportGeometryOBJ, 0);
+
+    std::unique_ptr<GEO_IOTranslator> xlate(GU_Detail::getSupportedFormat(".obj"));
+    if (!xlate)
+    {
+        writer.error("OBJ export not supported");
+        return false;
+    }
+
+    std::stringstream buffer;
+    GA_Detail::IOStatus status = xlate->fileSave(gdp, buffer);
+    if (!status.success())
+    {
+        writer.error("Failed to export OBJ to buffer");
+        return false;
+    }
+
+    std::string str = buffer.str();
+    file_data.assign(str.begin(), str.end());
+    if (file_data.size() == 0)
+    {
+        writer.error("Empty OBJ file");
+        return false;
+    }
+
+    return true;
+}
+
+bool export_geometry(EOutputFormat format, OP_Node* node, StreamWriter& writer)
+{
+    rmt_ScopedCPUSample(ExportGeometry, 0);
+
+    SOP_Node* sop = node->castToSOPNode();
+    if (!sop)
+    {
+        writer.error("Node is not a SOP node");
+        return false;
+    }
+
+    OP_Context context(0.0);
+    const GU_Detail* gdp = sop->getCookedGeo(context);
+    if (!gdp)
+    {
+        writer.error("Failed to get cooked geometry");
+        return false;
+    }
+
+    if (format == EOutputFormat::RAW)
+    {
+        Geometry geo;
+        if (!export_geometry_raw(gdp, geo, writer))
+        {
+            writer.error("Failed to export raw geometry");
+            return false;
+        }
+
+        writer.geometry(geo);
+    }
+    else if (format == EOutputFormat::OBJ)
+    {
+        std::vector<char> file_data;
+        if (!export_geometry_obj(gdp, file_data, writer))
+        {
+            writer.error("Failed to export obj geometry");
+            return false;
+        }
+
+        writer.file("generated_model.obj", file_data);
+    }
+    else
+    {
+        writer.error("Unknown output format");
+        return false;
+    }
+
+    return true;
+}
+
 void cleanup_session(MOT_Director* director)
 {
     rmt_ScopedCPUSample(CleanupSession, 0);
@@ -457,20 +525,10 @@ bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& wri
     }
 
     // Export results
-    Geometry geo;
+    if (!export_geometry(request.format, node, writer))
     {
-        rmt_ScopedCPUSample(ExportGeometry, 0);
-        if (!export_geometry(node, geo, writer))
-        {
-            writer.error("Failed to export geometry");
-            return false;
-        }
-    }
-
-    // Write the geometry
-    {
-        rmt_ScopedCPUSample(WriteGeometry, 0);
-        writer.geometry(geo);
+        writer.error("Failed to export geometry");
+        return false;
     }
 
     return true;

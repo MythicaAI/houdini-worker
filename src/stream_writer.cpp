@@ -1,7 +1,10 @@
+#include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
 #include "websocket.h"
+#include <UT/UT_Base64.h>
+#include <UT/UT_WorkBuffer.h>
 
 #include <iostream>
 
@@ -20,13 +23,21 @@ void StreamWriter::error(const std::string& message)
     writeToStream("error", "\"" + message + "\"");
 }
 
-void StreamWriter::file(const std::string& path)
+void StreamWriter::file(const std::string& file_name, const std::vector<char>& file_data)
 {
-    writeToStream("file", "\"" + path + "\"");
+    rmt_ScopedCPUSample(WriteFile, 0);
+
+    UT_WorkBuffer encoded_buffer;
+    UT_Base64::encode((uint8_t*)file_data.data(), file_data.size(), encoded_buffer);
+    std::string encoded(encoded_buffer.buffer(), encoded_buffer.length());
+
+    writeToStream("file", "{\"file_name\":\"" + file_name + "\", \"content_base64\":\"" + encoded + "\"}");
 }
 
 void StreamWriter::geometry(const Geometry& geometry)
 {
+    rmt_ScopedCPUSample(WriteGeometry, 0);
+
     std::string json = "{\"points\":[";
     for (size_t i = 0; i < geometry.points.size(); i++)
     {

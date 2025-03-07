@@ -151,6 +151,7 @@ async def main():
                     "file_path": hda_path
                 },
                 "definition_index": 0,
+                "format": "raw",
                 "input0": {
                     "file_id": "file_xxx",
                     "file_path": input_path
