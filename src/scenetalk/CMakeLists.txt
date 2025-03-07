@@ -7,7 +7,7 @@ set(executable_name scenetalk-ex)
 include_directories("../../third_party")
 file(GLOB QCBOR_SOURCES "../../third_party/qcbor/src/*.c")
 add_executable(${executable_name}
-        net_buffer.h
+        frame_decoder.h
         encoder.h
         encoder.cpp
         example.cpp
@@ -16,8 +16,9 @@ add_executable(${executable_name}
         buffer_pool.h
         buffer_pool.cpp
         frame.h
-        decoder.h
-        decoder.cpp
+        reader.h
+        reader.cpp
+        reader_item_cbor.cpp
         ${QCBOR_SOURCES})
 
 add_subdirectory(tests)

@@ -77,7 +77,7 @@ qcbor_err_to_str(const QCBORError uErr) {
       if(uErr >= QCBOR_ERR_FIRST_USER_DEFINED && uErr <= QCBOR_ERR_LAST_USER_DEFINED) {
          /* Static buffer is not thread safe, but this is only a diagnostic */
          static char buf[20];
-         strcpy(buf, "USER_DEFINED_");
+         strncpy_s(buf, sizeof(buf), "USER_DEFINED_", sizeof(buf));
          size_t uEndOffset = strlen(buf);
          buf[uEndOffset]   = (char)(uErr/100 + '0');
          buf[uEndOffset+1] = (char)(((uErr/10) % 10) + '0');

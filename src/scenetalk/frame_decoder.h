@@ -9,25 +9,16 @@
 namespace scene_talk {
 
 /**
- * @brief Callback type for frame handling
- */
-using frame_handler = std::function<void(const frame&)>;
-
-/**
  * @brief Handles network data and assembles it into frames
  */
-class net_buffer {
+class frame_decoder {
 public:
     /**
      * @brief Create a net_buffer
      *
-     * @param pool Buffer pool for allocations
-     * @param handler Callback function for complete frames
      * @param max_frame_size Maximum allowed frame size
      */
-    net_buffer(std::shared_ptr<buffer_pool> pool,
-               frame_handler handler,
-               size_t max_frame_size = MAX_PAYLOAD_SIZE);
+    frame_decoder(size_t max_frame_size = MAX_PAYLOAD_SIZE);
 
     /**
      * @brief Process incoming network data
@@ -37,6 +28,7 @@ public:
      * @return Number of bytes processed
      */
     size_t append(const uint8_t* data, size_t size);
+    size_t append(const frame_payload& data);
 
     /**
      * @brief Check if we're in the middle of processing a frame
@@ -48,11 +40,22 @@ public:
      */
     void reset();
 
+    /**
+     * @brief Read a single frame if available. Note that the frame payload is no longer
+     * valid if append is called again as it points to the underlying current_payload_
+     * of the frame_decoder.
+     *
+     * @param out_frame
+     * @return true if a frame was read
+     */
+    bool read(frame &out_frame);
+
 private:
     // Processing state
     enum class state {
         header,     // Waiting for header
-        payload     // Waiting for payload
+        payload,    // Waiting for payload
+        frame_ready // Waiting for reader
     };
 
     // Process data in header state
@@ -70,21 +73,16 @@ private:
     // Prepare for payload processing
     void prepare_for_payload();
 
-    // Handle a complete frame
-    void handle_complete_frame();
-
-    std::shared_ptr<buffer_pool> pool_;
-    frame_handler handler_;
     size_t max_frame_size_;
 
     // Current state
     state state_;
 
-    // Current frame data
-    uint8_t current_type_;
+    // Current frame streaming state
+    frame_type current_type_;
     uint8_t current_flags_;
     uint16_t current_payload_size_;
-    std::unique_ptr<buffer> current_payload_;
+    std::vector<uint8_t> current_payload_;
     size_t payload_bytes_read_;
 
     // Header buffer for incomplete headers

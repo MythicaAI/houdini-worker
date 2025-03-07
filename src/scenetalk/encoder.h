@@ -28,9 +28,10 @@ public:
      *
      * @param writer Callback for writing encoded frames
      * @param max_payload_size Maximum payload size
+     * @param max_depth Maximum encoder depth of BEGIN/END pairs
      */
     explicit encoder(
-        frame_writer writer,
+        const frame_writer &writer,
         size_t max_payload_size = MAX_PAYLOAD_SIZE,
         int32_t max_depth = MAX_CONTEXT_DEPTH);
 
@@ -42,7 +43,7 @@ public:
     /**
      * @brief Send an END frame
      */
-    void end();
+    void end(bool commit);
 
     /**
      * @brief Send an ATTRIBUTE frame
@@ -91,8 +92,8 @@ private:
      * @brief Send a frame with CBOR-encoded payload
      */
     void write_frame(
-        uint8_t frame_type,
-        const std::span<const uint8_t>& payload);
+        frame_type frame_type,
+        const frame_payload& payload);
 
     void log_message(
         const std::string_view &level,

@@ -9,18 +9,22 @@
 #include <optional>
 #include <span>
 
+#include "../../../../Program Files/Side Effects Software/Houdini 20.5.410/toolkit/include/SYS/SYS_Types.h"
+
 namespace scene_talk {
 
 // Frame type constants
-constexpr uint8_t HELLO = 'H';
-constexpr uint8_t PING_PONG = 'P';
-constexpr uint8_t BEGIN = 'B';
-constexpr uint8_t END = 'E';
-constexpr uint8_t LOG = 'L';
-constexpr uint8_t ATTRIBUTE = 'S';
-constexpr uint8_t FILE_REF = 'F';
-constexpr uint8_t PARTIAL = 'Z';
-constexpr uint8_t FLOW = 'X';
+enum class frame_type : uint8_t {
+    HELLO = 'H',
+    PING_PONG = 'P',
+    BEGIN = 'B',
+    END = 'E',
+    LOG = 'L',
+    ATTRIBUTE = 'S',
+    FILE_REF = 'F',
+    PARTIAL = 'Z',
+    FLOW = 'X',
+};
 
 // Frame header size (type + flags + length)
 constexpr size_t FRAME_HEADER_SIZE = 4;
@@ -31,21 +35,32 @@ constexpr size_t MAX_PAYLOAD_SIZE = (64 * 1024) - FRAME_HEADER_SIZE;
 // Prevent infinite recursion
 constexpr int32_t MAX_CONTEXT_DEPTH = 32;
 
+// Indication of partial frame
+constexpr uint8_t FLAG_PARTIAL = 0x01;
+
+using frame_payload = std::span<const uint8_t>;
+
 /**
  * @brief A simple frame structure with type, flags, and payload
  */
 struct frame {
-    uint8_t type;
+    frame_type type;
     uint8_t flags;
-    std::span<const uint8_t> payload;
+    frame_payload payload;
 
-    frame() : type(0), flags(0), payload() {}
+    frame() : type(frame_type::BEGIN), flags(0), payload() {}
 
-    frame(uint8_t t, uint8_t f, std::span<const uint8_t> p)
+    frame(const frame_type t, const uint8_t f, const frame_payload& p)
         : type(t), flags(f), payload(p) {}
 
-    // Serializes frame to a byte vector including header, returns true if the frame fits
-    bool serialize(uint8_t *dest, size_t size) const;
+    // Access the partial flag
+    bool is_partial() const { return flags & FLAG_PARTIAL; }
+
+    // Serializes frame to a byte vector including header, returns used bytes or 0 if failure
+    size_t serialize(uint8_t *dest, size_t size) const;
+
+    // Serialize into a vector, will be cleared and sized for the underlying payload
+    size_t serialize(std::vector<uint8_t> &dest) const;
 
     // Deserialize frame from raw bytes
     static std::optional<frame> deserialize(const uint8_t* data, size_t size);

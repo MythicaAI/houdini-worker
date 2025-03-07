@@ -1,5 +1,4 @@
 #include "frame.h"
-#include <cassert>
 
 namespace scene_talk {
 
@@ -14,18 +13,23 @@ uint16_t unpack_uint16_le(const uint8_t* data) {
     return static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
 }
 
-bool frame::serialize(uint8_t *dest, size_t size) const {
+size_t frame::serialize(std::vector<uint8_t> &dest) const {
+    const size_t current_offset = dest.size();
+    dest.resize(current_offset + (FRAME_HEADER_SIZE + payload.size()));
+    return serialize(dest.data() + current_offset, dest.size() - current_offset);
+}
+
+size_t frame::serialize(uint8_t *dest, size_t size) const {
     // Calculate total required size
-    const size_t total_size = FRAME_HEADER_SIZE + payload.size();
 
     // Check if destination buffer is large enough
-    if (total_size > size) {
+    if (const size_t total_frame_size = FRAME_HEADER_SIZE + payload.size(); total_frame_size > size) {
         return false;
     }
 
     // Add type and flags
     size_t i = 0;
-    dest[i++] = type;
+    dest[i++] = static_cast<uint8_t>(type);
     dest[i++] = flags;
 
     // Add payload length (little endian)
@@ -34,9 +38,9 @@ bool frame::serialize(uint8_t *dest, size_t size) const {
     dest[i++] = length_bytes[1];
 
     // Add payload
-    std::copy(payload.begin(), payload.end(), dest + i);
+    std::ranges::copy(payload, dest + i);
 
-    return true;
+    return i + payload.size();
 }
 
 std::optional<frame> frame::deserialize(const uint8_t* data, size_t size) {
@@ -46,9 +50,9 @@ std::optional<frame> frame::deserialize(const uint8_t* data, size_t size) {
     }
 
     // Extract header fields
-    uint8_t frame_type = data[0];
-    uint8_t frame_flags = data[1];
-    uint16_t payload_length = unpack_uint16_le(&data[2]);
+    const auto type = static_cast<frame_type>(data[0]);
+    const uint8_t frame_flags = data[1];
+    const uint16_t payload_length = unpack_uint16_le(&data[2]);
 
     // Check if we have enough data for the payload
     if (size < FRAME_HEADER_SIZE + payload_length) {
@@ -56,9 +60,9 @@ std::optional<frame> frame::deserialize(const uint8_t* data, size_t size) {
     }
 
     // Extract payload
-    std::span<const uint8_t> payload(data + FRAME_HEADER_SIZE, payload_length);
+    const frame_payload payload(data + FRAME_HEADER_SIZE, payload_length);
 
-    return frame(frame_type, frame_flags, payload);
+    return frame(type, frame_flags, payload);
 }
 
 } // namespace scene_talk
