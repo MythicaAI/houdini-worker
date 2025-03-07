@@ -280,6 +280,31 @@
         updateLogContent();
     }
 
+    if (data.op === "file") {
+      const file_name = data.data.file_name;
+      const base64Str = data.data.content_base64;
+
+      // Decode the Base64 string into a binary string.
+      const binaryStr = atob(base64Str);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+
+      // Trigger a file download
+      const blob = new Blob([bytes], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      console.log('File downloaded via fallback method.');
+    }
+
     if (data.op === "geometry") {
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {

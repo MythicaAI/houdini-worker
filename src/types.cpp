@@ -18,18 +18,6 @@ static EOutputFormat parse_output_format(const std::string& format_str)
     {
         return EOutputFormat::RAW;
     }
-    else if (format_str == "fbx")
-    {
-        return EOutputFormat::FBX;
-    }
-    else if (format_str == "usd")
-    {
-        return EOutputFormat::USD;
-    }
-    else if (format_str == "glb")
-    {
-        return EOutputFormat::GLB;
-    }
     else if (format_str == "obj")
     {
         return EOutputFormat::OBJ;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 struct Geometry;
 class WebSocket;
@@ -21,7 +22,7 @@ public:
     void state(AutomationState state);
     void status(const std::string& message);
     void error(const std::string& message);
-    void file(const std::string& path);
+    void file(const std::string& file_name, const std::vector<char>& file_data);
     void geometry(const Geometry& geometry);
 
 private:

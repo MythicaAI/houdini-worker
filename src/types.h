@@ -40,9 +40,6 @@ enum class EOutputFormat
 {
     INVALID,
     RAW,
-    FBX,
-    USD,
-    GLB,
     OBJ
 };
 
