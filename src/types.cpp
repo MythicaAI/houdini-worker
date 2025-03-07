@@ -12,6 +12,34 @@
 namespace util
 {
 
+static EOutputFormat parse_output_format(const std::string& format_str)
+{
+    if (format_str == "raw")
+    {
+        return EOutputFormat::RAW;
+    }
+    else if (format_str == "fbx")
+    {
+        return EOutputFormat::FBX;
+    }
+    else if (format_str == "usd")
+    {
+        return EOutputFormat::USD;
+    }
+    else if (format_str == "glb")
+    {
+        return EOutputFormat::GLB;
+    }
+    else if (format_str == "obj")
+    {
+        return EOutputFormat::OBJ;
+    }
+    else
+    {
+        return EOutputFormat::INVALID;
+    }
+}
+
 static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, FileCache& file_cache, StreamWriter& writer)
 {
     if (!data || data->getType() != UT_JSONValue::JSON_MAP)
@@ -87,10 +115,25 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
         return false;
     }
 
+    auto format_iter = paramSet.find("format");
+    if (format_iter == paramSet.end() || !std::holds_alternative<std::string>(format_iter->second))
+    {
+        writer.error("Request missing required field: format");
+        return false;
+    }
+
+    request.format = parse_output_format(std::get<std::string>(format_iter->second));
+    if (request.format == EOutputFormat::INVALID)
+    {
+        writer.error("Unknown output format: " + std::get<std::string>(format_iter->second));
+        return false;
+    }
+
     request.hda_file = std::get<FileParameter>(hda_path_iter->second).file_path;
     request.definition_index = std::get<int64_t>(definition_index_iter->second);
     paramSet.erase("hda_path");
     paramSet.erase("definition_index");
+    paramSet.erase("format");
 
     // Bind input parameters
     std::regex input_pattern("^input(\\d+)$");
