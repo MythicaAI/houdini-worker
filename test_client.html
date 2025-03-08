@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Babylon.js Scene</title>
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -202,21 +203,23 @@
   skydome.material = sky;
 
   // Create a camera
-  const camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 4, Math.PI / 4, 10, BABYLON.Vector3.Zero(), scene);
+  const camera = new BABYLON.ArcRotateCamera("Camera", 0.1, 1.0, 8, BABYLON.Vector3.Zero(), scene);
+  camera.setTarget(new BABYLON.Vector3(0, 1, 0));
   camera.attachControl(canvas, true);
 
   // Create a light
   const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
   light.intensity = 0.7;
 
-  // Create a plane
-  const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 20, height: 20 }, scene);
+  // Create a ground plane
+  const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 15, height: 15 }, scene);
 
-  const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
-  groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.png", scene);
-  groundMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_nor_gl_1k.png", scene);
-  groundMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-  plane.material = groundMaterial;
+  const groundMaterial = new BABYLON.GridMaterial("groundMaterial", scene);
+  groundMaterial.mainColor = new BABYLON.Color3(0.6, 0.6, 0.6);
+  groundMaterial.lineColor = new BABYLON.Color3(0.4, 0.4, 0.4);
+  groundMaterial.gridRatio = 0.25;
+  groundMaterial.minorUnitVisibility = 0.15;
+  ground.material = groundMaterial;
 
   const objectMaterial = new BABYLON.StandardMaterial("objectMaterial", scene);
   objectMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
