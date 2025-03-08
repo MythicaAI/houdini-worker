@@ -354,20 +354,19 @@
 
   let customMesh = null;
   const createMeshFromData = (vertices, indices, normals, uvs) => {
-    if (customMesh) {
-      customMesh.dispose();
-    }
-    customMesh = new BABYLON.Mesh("customMesh", scene);
-    customMesh.material = objectMaterial;
-
     const vertexData = new BABYLON.VertexData();
-
     vertexData.positions = vertices;
     vertexData.indices = indices;
     vertexData.normals = normals;
     vertexData.uvs = uvs;
 
-    vertexData.applyToMesh(customMesh);
+    if (!customMesh) {
+      customMesh = new BABYLON.Mesh("customMesh", scene);
+      customMesh.material = objectMaterial;
+      vertexData.applyToMesh(customMesh, true);
+    } else {
+      vertexData.updateMesh(customMesh, true);
+    }
   };
 
   // Slider event listeners
