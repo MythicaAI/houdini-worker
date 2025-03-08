@@ -187,23 +187,52 @@
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
 
+  scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/textures/country.env", scene);
+  scene.clearColor = new BABYLON.Color4(1.0, 1.0, 1.0, 1.0);
+
+  // Create a skydome
+  const skydome = BABYLON.MeshBuilder.CreateBox("sky", { size: 10000, sideOrientation: BABYLON.Mesh.BACKSIDE }, scene);
+  skydome.position.y = 500;
+  skydome.isPickable = false;
+
+  const sky = new BABYLON.BackgroundMaterial("skyMaterial", scene);
+  sky.reflectionTexture = scene.environmentTexture.clone();
+  sky.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+  sky.alpha = 0.5;
+  skydome.material = sky;
+
   // Create a camera
-  const camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 4, Math.PI / 4, 10, BABYLON.Vector3.Zero(), scene);
+  const camera = new BABYLON.ArcRotateCamera("Camera", 0.1, 1.0, 8, BABYLON.Vector3.Zero(), scene);
+  camera.setTarget(new BABYLON.Vector3(0, 1, 0));
   camera.attachControl(canvas, true);
+  camera.lowerRadiusLimit = 3;
+  camera.upperRadiusLimit = 20;
+  camera.panningSensibility = 0;
+  camera.wheelPrecision = 15;
 
   // Create a light
   const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
-  light.intensity = 0.7;
+  light.intensity = 0.6;
+  light.groundColor = new BABYLON.Color3(0.6, 0.6, 0.6);
 
-  // Create a plane
-  const plane = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
-  plane.receiveShadows = true;
+  const directionalLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
+  directionalLight.position = new BABYLON.Vector3(20, 40, 20);
+  directionalLight.intensity = 0.2;
+  directionalLight.shadowOrthoScale = 2;
+
+  const shadowGenerator = new BABYLON.ShadowGenerator(1024, directionalLight);
+  shadowGenerator.useExponentialShadowMap = true;
+
+  // Create a ground plane
+  const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 15, height: 15 }, scene);
+  ground.receiveShadows = true;
 
   const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
-  groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.png", scene);
-  groundMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_plaster_wall/painted_plaster_wall_nor_gl_1k.png", scene);
-  groundMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-  plane.material = groundMaterial;
+  groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/granite_tile/granite_tile_ao_1k.png", scene);
+  groundMaterial.diffuseTexture.uScale = 2;
+  groundMaterial.diffuseTexture.vScale = 2;
+  groundMaterial.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+  ground.material = groundMaterial;
 
   const objectMaterial = new BABYLON.StandardMaterial("objectMaterial", scene);
   objectMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
@@ -338,20 +367,21 @@
 
   let customMesh = null;
   const createMeshFromData = (vertices, indices, normals, uvs) => {
-    if (customMesh) {
-      customMesh.dispose();
-    }
-    customMesh = new BABYLON.Mesh("customMesh", scene);
-    customMesh.material = objectMaterial;
-
     const vertexData = new BABYLON.VertexData();
-
     vertexData.positions = vertices;
     vertexData.indices = indices;
     vertexData.normals = normals;
     vertexData.uvs = uvs;
 
-    vertexData.applyToMesh(customMesh);
+    if (!customMesh) {
+      customMesh = new BABYLON.Mesh("customMesh", scene);
+      customMesh.material = objectMaterial;
+      vertexData.applyToMesh(customMesh, true);
+
+      shadowGenerator.addShadowCaster(customMesh);
+    } else {
+      vertexData.updateMesh(customMesh, true);
+    }
   };
 
   // Slider event listeners
