@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Babylon.js Scene</title>
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -209,16 +208,26 @@
 
   // Create a light
   const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
-  light.intensity = 0.7;
+  light.intensity = 0.6;
+  light.groundColor = new BABYLON.Color3(0.6, 0.6, 0.6);
+
+  const directionalLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
+  directionalLight.position = new BABYLON.Vector3(20, 40, 20);
+  directionalLight.intensity = 0.2;
+  directionalLight.shadowOrthoScale = 2;
+
+  const shadowGenerator = new BABYLON.ShadowGenerator(1024, directionalLight);
+  shadowGenerator.useExponentialShadowMap = true;
 
   // Create a ground plane
   const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 15, height: 15 }, scene);
+  ground.receiveShadows = true;
 
-  const groundMaterial = new BABYLON.GridMaterial("groundMaterial", scene);
-  groundMaterial.mainColor = new BABYLON.Color3(0.6, 0.6, 0.6);
-  groundMaterial.lineColor = new BABYLON.Color3(0.4, 0.4, 0.4);
-  groundMaterial.gridRatio = 0.25;
-  groundMaterial.minorUnitVisibility = 0.15;
+  const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+  groundMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/granite_tile/granite_tile_ao_1k.png", scene);
+  groundMaterial.diffuseTexture.uScale = 2;
+  groundMaterial.diffuseTexture.vScale = 2;
+  groundMaterial.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
   ground.material = groundMaterial;
 
   const objectMaterial = new BABYLON.StandardMaterial("objectMaterial", scene);
@@ -364,6 +373,8 @@
       customMesh = new BABYLON.Mesh("customMesh", scene);
       customMesh.material = objectMaterial;
       vertexData.applyToMesh(customMesh, true);
+
+      shadowGenerator.addShadowCaster(customMesh);
     } else {
       vertexData.updateMesh(customMesh, true);
     }
