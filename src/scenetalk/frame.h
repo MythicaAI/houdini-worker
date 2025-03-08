@@ -16,14 +16,14 @@ namespace scene_talk {
 // Frame type constants
 enum class frame_type : uint8_t {
     HELLO = 'H',
-    PING_PONG = 'P',
+    PING_PONG = 'P',  // collapse into control
     BEGIN = 'B',
     END = 'E',
     LOG = 'L',
     ATTRIBUTE = 'S',
-    FILE_REF = 'F',
-    PARTIAL = 'Z',
-    FLOW = 'X',
+    FILE_REF = 'F', // collapse into attribute
+    PARTIAL = 'Z', // collapse into frame flags
+    FLOW = 'X',  // collapse into control
 };
 
 // Frame header size (type + flags + length)
@@ -48,13 +48,16 @@ struct frame {
     uint8_t flags;
     frame_payload payload;
 
-    frame() : type(frame_type::BEGIN), flags(0), payload() {}
+    frame() : type(frame_type::BEGIN), flags(0) {}
 
     frame(const frame_type t, const uint8_t f, const frame_payload& p)
         : type(t), flags(f), payload(p) {}
 
     // Access the partial flag
     bool is_partial() const { return flags & FLAG_PARTIAL; }
+
+    // Access the stream ID
+    uint32_t stream_id() const { return flags >> 1; }
 
     // Serializes frame to a byte vector including header, returns used bytes or 0 if failure
     size_t serialize(uint8_t *dest, size_t size) const;

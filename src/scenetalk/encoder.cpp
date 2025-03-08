@@ -55,7 +55,9 @@ void encoder::write_frame(frame_type frame_type, const frame_payload& payload) {
             QCBOREncode_CloseMap(&encode_ctx);
 
             UsefulBufC partial_payload_cbor;
-            QCBOREncode_Finish(&encode_ctx, &partial_payload_cbor);
+            if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &partial_payload_cbor))) {
+               return;
+            }
 
             // write partial frame
             frame partial_frame(
@@ -89,7 +91,9 @@ void encoder::begin(const std::string& entity_type, const std::string& location)
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+       return;
+    }
 
     write_frame(frame_type::BEGIN,
         frame_payload(
@@ -113,7 +117,9 @@ void encoder::end(bool commit) {
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::END,
         frame_payload(
@@ -136,7 +142,9 @@ void encoder::attr(const std::string& name, const std::string& attr_type, const 
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::ATTRIBUTE,
         frame_payload(
@@ -158,7 +166,9 @@ void encoder::ping_pong() {
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::PING_PONG,
         frame_payload(
@@ -175,7 +185,9 @@ void encoder::flow_control(int backoff_value) {
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::FLOW,
         frame_payload(
@@ -206,11 +218,23 @@ void encoder::log_message(const std::string_view& level, const std::string& msg)
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::LOG,
         frame_payload(
-            static_cast<const uint8_t*>(payload_cbor.ptr), payload_cbor.len));}
+            static_cast<const uint8_t*>(payload_cbor.ptr), payload_cbor.len));
+}
+
+bool encoder::valid_encoding(QCBORError cbor_err) {
+    if (cbor_err == QCBOR_SUCCESS) {
+        return true;
+    }
+    const char *reason = qcbor_err_to_str(cbor_err);
+    error(reason);
+    return false;
+}
 
 void encoder::file(const file_ref& ref, bool status) {
     QCBOREncodeContext encode_ctx;
@@ -244,7 +268,9 @@ void encoder::file(const file_ref& ref, bool status) {
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::FILE_REF,
         frame_payload(
@@ -274,7 +300,9 @@ void encoder::hello(const std::string& client, const std::optional<std::string>&
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
-    QCBOREncode_Finish(&encode_ctx, &payload_cbor);
+    if (!valid_encoding(QCBOREncode_Finish(&encode_ctx, &payload_cbor))) {
+        return;
+    }
 
     write_frame(frame_type::HELLO,
         frame_payload(

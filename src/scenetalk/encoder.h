@@ -3,16 +3,13 @@
 #include <cstdint>
 #include <string>
 #include <optional>
-#include <memory>
 #include <functional>
-#include <nlohmann/json.hpp>
+#include <qcbor/qcbor_common.h>
+
 #include "frame.h"
 #include "buffer_pool.h"
 
 namespace scene_talk {
-
-// Use CBOR functionality from nlohmann/json
-using json = nlohmann::json;
 
 // Forward decl for FileRef
 class file_ref;
@@ -61,17 +58,17 @@ public:
     void flow_control(int backoff_value);
 
     /**
-     * @brief Send an ERROR log frame
+     * @brief Send an error LOG frame
      */
     void error(const std::string& msg);
 
     /**
-     * @brief Send an INFO log frame
+     * @brief Send an info LOG frame
      */
     void info(const std::string& msg);
 
     /**
-     * @brief Send a WARNING log frame
+     * @brief Send a warning LOG frame
      */
     void warning(const std::string& msg);
 
@@ -98,6 +95,9 @@ private:
     void log_message(
         const std::string_view &level,
         const std::string &msg);
+
+    bool valid_encoding(
+        QCBORError error);
 
     frame_writer writer_;
     size_t max_payload_size_;

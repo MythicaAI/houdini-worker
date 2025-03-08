@@ -8,7 +8,7 @@ ENV SFX_CLIENT_SECRET=""
 ENV HFS=/opt/houdini/build
 
 # Install SideFX Labs Houdini Package
-ENV SIDE_FX_LABS_VERSION=20.5.370
+ENV SIDE_FX_LABS_VERSION=20.5.371
 
 RUN mkdir /root/sideFXLabs/
 RUN wget https://github.com/sideeffects/SideFXLabs/archive/refs/tags/${SIDE_FX_LABS_VERSION}.tar.gz -O /tmp/sideFXLabs.tar.gz
