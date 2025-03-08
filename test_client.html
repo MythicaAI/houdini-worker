@@ -373,6 +373,16 @@
     vertexData.normals = normals;
     vertexData.uvs = uvs;
 
+    if (customMesh) {
+      const currentVertexCount = customMesh.getTotalVertices();
+      const newVertexCount = vertices.length / 3;
+
+      if (currentVertexCount !== newVertexCount) {
+        customMesh.dispose();
+        customMesh = null;
+      }
+    }
+
     if (!customMesh) {
       customMesh = new BABYLON.Mesh("customMesh", scene);
       customMesh.material = objectMaterial;
