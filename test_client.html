@@ -192,7 +192,7 @@
 
   // Create a skydome
   const skydome = BABYLON.MeshBuilder.CreateBox("sky", { size: 10000, sideOrientation: BABYLON.Mesh.BACKSIDE }, scene);
-  skydome.position.y = 500;
+  skydome.position.y = -500;
   skydome.isPickable = false;
 
   const sky = new BABYLON.BackgroundMaterial("skyMaterial", scene);
@@ -234,10 +234,15 @@
   groundMaterial.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
   ground.material = groundMaterial;
 
-  const objectMaterial = new BABYLON.StandardMaterial("objectMaterial", scene);
-  objectMaterial.diffuseTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_diff_1k.png", scene);
-  objectMaterial.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_face_03/rock_face_03_nor_gl_1k.png", scene);
-  objectMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+  var objectMaterial = new BABYLON.PBRMaterial("pbr", scene);
+  objectMaterial.metallic = 1.0;
+  objectMaterial.roughness = 0.06;
+  objectMaterial.subSurface.isRefractionEnabled = true;
+  objectMaterial.subSurface.indexOfRefraction = 1.5;
+  objectMaterial.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
+  objectMaterial.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
+  objectMaterial.emissiveIntensity = 0.75;
+  objectMaterial.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
 
   const paramValues = {
     length: 2.5,
