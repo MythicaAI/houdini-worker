@@ -238,7 +238,7 @@
     {
       name: 'Rockify',
       file_path: 'assets/Mythica.Rockify.1.0.hda',
-      material_name: 'rock',
+      material_name: 'rockface',
       parameters: {
         Stage: {
           type: 'slider',
@@ -280,6 +280,10 @@
           type: 'hidden',
           default: 0.1
         },
+        size: {
+          type: 'hidden',
+          default: 512
+        },
         input0: {
           type: 'hidden',
           default: {
@@ -320,6 +324,14 @@
       mat.roughness = 0.8;
       mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_05/rock_05_diff_1k.png", scene);
       mat.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_05/rock_05_bump_1k.png", scene);
+      return mat;
+    })(),
+    rockface: (() => {
+      const mat = new BABYLON.PBRMaterial("rockface", scene);
+      mat.metallic = 0.0;
+      mat.roughness = 0.8;
+      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/cliff_side/cliff_side_diff_1k.png", scene);
+      mat.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/cliff_side/cliff_side_disp_1k.png", scene);
       return mat;
     })()
   };
