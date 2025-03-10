@@ -233,11 +233,66 @@
           type: 'hidden',
           default: 5
         }
+      },
+    },
+    {
+      name: 'Rockify',
+      file_path: 'assets/Mythica.Rockify.1.0.hda',
+      material_name: 'rock',
+      parameters: {
+        Stage: {
+          type: 'slider',
+          label: 'Stage',
+          min: 0,
+          max: 3,
+          step: 1,
+          default: 1,
+        },
+        base_rangemax: {
+          type: 'slider',
+          label: 'Base Noise',
+          min: 0.0,
+          max: 10.0,
+          step: 0.5,
+          default: 6.5
+        },
+        mid_rangemax: {
+          type: 'slider',
+          label: 'Mid Noise',
+          min: 0.0,
+          max: 3,
+          step: 0.25,
+          default: 0.25
+        },
+        top_rangemax: {
+          type: 'slider',
+          label: 'Top Noise',
+          min: 0.0,
+          max: 5.0,
+          step: 0.5,
+          default: 0.5
+        },
+        smoothingiterations: {
+          type: 'hidden',
+          default: 0
+        },
+        vertDensity: {
+          type: 'hidden',
+          default: 0.1
+        },
+        input0: {
+          type: 'hidden',
+          default: {
+            file_id: "file_xxx",
+            file_path: "assets/SM_Shape_04_a.usd"
+          }
+        },
+
       }
     }
   ];
 
-  const SCHEMA_INDEX = 1;
+  const SCHEMA_INDEX = 2;
 
   // ================================================
   // Demo Materials
