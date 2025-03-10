@@ -216,18 +216,24 @@
   groundMaterial.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
   ground.material = groundMaterial;
 
-  var objectMaterial = new BABYLON.PBRMaterial("pbr", scene);
-  objectMaterial.metallic = 1.0;
-  objectMaterial.roughness = 0.06;
-  objectMaterial.subSurface.isRefractionEnabled = true;
-  objectMaterial.subSurface.indexOfRefraction = 1.5;
-  objectMaterial.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
-  objectMaterial.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
-  objectMaterial.emissiveIntensity = 0.75;
-  objectMaterial.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
+  const materials = {
+    crystal: (() => {
+      const mat = new BABYLON.PBRMaterial("pbr", scene);
+      mat.metallic = 1.0;
+      mat.roughness = 0.06;
+      mat.subSurface.isRefractionEnabled = true;
+      mat.subSurface.indexOfRefraction = 1.5;
+      mat.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
+      mat.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
+      mat.emissiveIntensity = 0.75;
+      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
+      return mat;
+    })()
+  };
 
   const parameterSchema = {
     file_path: 'assets/mythica.crystal.1.0.hda',
+    material_name: 'crystal',
     parameters: {
       length: {
         type: 'slider',
@@ -431,7 +437,7 @@
 
     if (!customMesh) {
       customMesh = new BABYLON.Mesh("customMesh", scene);
-      customMesh.material = objectMaterial;
+      customMesh.material = materials[parameterSchema.material_name];
       vertexData.applyToMesh(customMesh, true);
 
       shadowGenerator.addShadowCaster(customMesh);
