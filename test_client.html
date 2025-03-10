@@ -199,10 +199,41 @@
           default: 6
         }
       }
+    },
+    {
+      name: 'Rock Generator',
+      file_path: 'assets/Mythica.RockGenerator.1.0.hda',
+      material_name: 'rock',
+      parameters: {
+        seed: {
+          type: 'slider',
+          label: 'Randomize',
+          min: 1,
+          max: 50,
+          step: 1,
+          default: 1,
+        },
+        sizez: {
+          type: 'slider',
+          label: 'Size',
+          min: 1,
+          max: 5,
+          step: 0.1,
+          default: 2.5
+        },
+        smoothing: {
+          type: 'slider',
+          label: 'Smoothing',
+          min: 0,
+          max: 50,
+          step: 1,
+          default: 25
+        }
+      }
     }
   ];
 
-  const SCHEMA_INDEX = 0;
+  const SCHEMA_INDEX = 1;
 
   // ================================================
   // Demo Materials
@@ -222,6 +253,14 @@
       mat.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
       mat.emissiveIntensity = 0.75;
       mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
+      return mat;
+    })(),
+    rock: (() => {
+      const mat = new BABYLON.PBRMaterial("rock", scene);
+      mat.metallic = 0.0;
+      mat.roughness = 0.8;
+      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_05/rock_05_diff_1k.png", scene);
+      mat.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_05/rock_05_bump_1k.png", scene);
       return mat;
     })()
   };
