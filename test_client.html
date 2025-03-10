@@ -208,18 +208,10 @@
         seed: {
           type: 'slider',
           label: 'Randomize',
-          min: 1,
+          min: 0,
           max: 50,
           step: 1,
-          default: 1,
-        },
-        sizez: {
-          type: 'slider',
-          label: 'Size',
-          min: 1,
-          max: 5,
-          step: 0.1,
-          default: 2.5
+          default: 0,
         },
         smoothing: {
           type: 'slider',
@@ -228,6 +220,10 @@
           max: 50,
           step: 1,
           default: 25
+        },
+        npts: {
+          type: 'hidden',
+          default: 5
         }
       }
     }
@@ -328,6 +324,8 @@
 
     Object.entries(parameterSchemas[SCHEMA_INDEX].parameters).forEach(([key, config]) => {
       paramValues[key] = config.default;
+
+      if (config.type === 'hidden') return; // Skip UI creation for hidden params
 
       if (config.type === 'slider') {
         const sliderContainer = document.createElement('div');
