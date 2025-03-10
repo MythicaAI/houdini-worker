@@ -496,25 +496,32 @@
     vertexData.normals = normals;
     vertexData.uvs = uvs;
 
+    // Fast path to update existing mesh
     if (customMesh) {
       const currentVertexCount = customMesh.getTotalVertices();
       const newVertexCount = vertices.length / 3;
-
-      if (currentVertexCount !== newVertexCount) {
-        customMesh.dispose();
-        customMesh = null;
+      if (currentVertexCount == newVertexCount) {
+        vertexData.updateMesh(customMesh, true);
+        return;
       }
     }
 
-    if (!customMesh) {
-      customMesh = new BABYLON.Mesh("customMesh", scene);
-      customMesh.material = materials[parameterSchemas[SCHEMA_INDEX].material_name];
-      vertexData.applyToMesh(customMesh, true);
+    // Create a new mesh and swap to it once it's ready
+    const newMesh = new BABYLON.Mesh("customMesh_new", scene);
+    newMesh.material = materials[parameterSchemas[SCHEMA_INDEX].material_name];
+    vertexData.applyToMesh(newMesh, true);
+    shadowGenerator.addShadowCaster(newMesh);
 
-      shadowGenerator.addShadowCaster(customMesh);
-    } else {
-      vertexData.updateMesh(customMesh, true);
-    }
+    const pollMeshReady = mesh => {
+      if (mesh.isReady(true)) {
+        if (customMesh) customMesh.dispose();
+        customMesh = mesh;
+      } else {
+        requestAnimationFrame(() => pollMeshReady(mesh));
+      }
+    };
+
+    pollMeshReady(newMesh);
   };
 
   // Toggle wireframe mode
