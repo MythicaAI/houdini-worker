@@ -34,11 +34,11 @@
       gap: 10px;
     }
     .slider-label {
-      width: 80px;
+      width: 120px;
     }
     .slider-row input[type="range"] {
       flex: 1;
-      width: 150px;
+      width: 120px;
     }
     .slider-value {
       width: 40px;
@@ -132,26 +132,8 @@
   <div style="background-color: #2d2d2d; padding: 8px; margin: -15px -15px 15px -15px; border-bottom: 1px solid #333;">
     <h3 style="margin: 0; text-align: center; color: #e0e0e0;">Parameters</h3>
   </div>
-  <div class="slider-container">
-    <div class="slider-row">
-      <span class="slider-label">Length:</span>
-      <input type="range" id="lengthSlider" min="0.5" max="5" step="0.1" value="2.5">
-      <span id="lengthValue" class="slider-value">2.5</span>
-    </div>
-  </div>
-  <div class="slider-container">
-    <div class="slider-row">
-      <span class="slider-label">Radius:</span>
-      <input type="range" id="radiusSlider" min="0.1" max="2" step="0.1" value="0.6">
-      <span id="radiusValue" class="slider-value">0.6</span>
-    </div>
-  </div>
-  <div class="slider-container">
-    <div class="slider-row">
-      <span class="slider-label">Sides:</span>
-      <input type="range" id="numsidesSlider" min="3" max="12" step="1" value="6">
-      <span id="numsidesValue" class="slider-value">6</span>
-    </div>
+  <div id="parameterContainer">
+    <!-- Parameters will be inserted here -->
   </div>
   <div class="toggle-container">
     <input type="checkbox" id="wireframeToggle">
@@ -183,10 +165,107 @@
   <div id="logContent" style="font-family: monospace; white-space: pre-wrap; padding: 15px; height: calc(400px - 45px); overflow-y: auto;"></div>
 </div>
 <script>
+  // ================================================
+  // Demo Parameter Schemas
+  // ================================================
+  const parameterSchemas = [
+    {
+      name: 'Crystal',
+      file_path: 'assets/mythica.crystal.1.0.hda',
+      material_name: 'crystal',
+      parameters: {
+        length: {
+          type: 'slider',
+          label: 'Length',
+          min: 0.5,
+          max: 5,
+          step: 0.1,
+          default: 2.5
+        },
+        radius: {
+          type: 'slider',
+          label: 'Radius',
+          min: 0.1,
+          max: 2,
+          step: 0.1,
+          default: 0.6
+        },
+        numsides: {
+          type: 'slider',
+          label: 'Sides',
+          min: 3,
+          max: 12,
+          step: 1,
+          default: 6
+        }
+      }
+    },
+    {
+      name: 'Rock Generator',
+      file_path: 'assets/Mythica.RockGenerator.1.0.hda',
+      material_name: 'rock',
+      parameters: {
+        seed: {
+          type: 'slider',
+          label: 'Randomize',
+          min: 0,
+          max: 50,
+          step: 1,
+          default: 0,
+        },
+        smoothing: {
+          type: 'slider',
+          label: 'Smoothing',
+          min: 0,
+          max: 50,
+          step: 1,
+          default: 25
+        },
+        npts: {
+          type: 'hidden',
+          default: 5
+        }
+      }
+    }
+  ];
+
+  const SCHEMA_INDEX = 1;
+
+  // ================================================
+  // Demo Materials
+  // ================================================
   const canvas = document.getElementById("renderCanvas");
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
 
+  const materials = {
+    crystal: (() => {
+      const mat = new BABYLON.PBRMaterial("pbr", scene);
+      mat.metallic = 1.0;
+      mat.roughness = 0.06;
+      mat.subSurface.isRefractionEnabled = true;
+      mat.subSurface.indexOfRefraction = 1.5;
+      mat.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
+      mat.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
+      mat.emissiveIntensity = 0.75;
+      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
+      return mat;
+    })(),
+    rock: (() => {
+      const mat = new BABYLON.PBRMaterial("rock", scene);
+      mat.metallic = 0.0;
+      mat.roughness = 0.8;
+      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_05/rock_05_diff_1k.png", scene);
+      mat.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_05/rock_05_bump_1k.png", scene);
+      return mat;
+    })()
+  };
+
+  // ================================================
+  // Scene Setup
+  // ================================================
+
+  // Environment
   scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/textures/country.env", scene);
   scene.clearColor = new BABYLON.Color4(1.0, 1.0, 1.0, 1.0);
 
@@ -234,21 +313,52 @@
   groundMaterial.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
   ground.material = groundMaterial;
 
-  var objectMaterial = new BABYLON.PBRMaterial("pbr", scene);
-  objectMaterial.metallic = 1.0;
-  objectMaterial.roughness = 0.06;
-  objectMaterial.subSurface.isRefractionEnabled = true;
-  objectMaterial.subSurface.indexOfRefraction = 1.5;
-  objectMaterial.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
-  objectMaterial.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
-  objectMaterial.emissiveIntensity = 0.75;
-  objectMaterial.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
+  // ================================================
+  // Parameter Initialization
+  // ================================================
 
-  const paramValues = {
-    length: 2.5,
-    radius: 0.6,
-    numsides: 6
-  };
+  const paramValues = {};
+
+  function initializeParameters() {
+    const container = document.getElementById('parameterContainer');
+
+    Object.entries(parameterSchemas[SCHEMA_INDEX].parameters).forEach(([key, config]) => {
+      paramValues[key] = config.default;
+
+      if (config.type === 'hidden') return; // Skip UI creation for hidden params
+
+      if (config.type === 'slider') {
+        const sliderContainer = document.createElement('div');
+        sliderContainer.className = 'slider-container';
+        sliderContainer.innerHTML = `
+          <div class="slider-row">
+            <span class="slider-label">${config.label}:</span>
+            <input type="range"
+                   id="${key}Slider"
+                   min="${config.min}"
+                   max="${config.max}"
+                   step="${config.step}"
+                   value="${config.default}">
+            <span id="${key}Value" class="slider-value">${config.default}</span>
+          </div>
+        `;
+
+        container.appendChild(sliderContainer);
+
+        // Add event listener
+        document.getElementById(`${key}Slider`).addEventListener('input', (e) => {
+          const value = parseFloat(e.target.value);
+          document.getElementById(`${key}Value`).textContent = value.toFixed(1);
+          paramValues[key] = value;
+          regenerateMesh();
+        });
+      }
+    });
+  }
+
+  // ================================================
+  // WebSocket Runtime
+  // ================================================
 
   // Request state tracking
   let requestInFlight = false;
@@ -287,13 +397,11 @@
       "data": {
         "hda_path": {
           "file_id": "file_xxx",
-          "file_path": "assets/mythica.crystal.1.0.hda"
+          "file_path": parameterSchemas[SCHEMA_INDEX].file_path
         },
         "definition_index": 0,
         "format": format,
-        "length": paramValues.length,
-        "radius": paramValues.radius,
-        "numsides": paramValues.numsides
+        ...paramValues
       }
     };
     ws.send(JSON.stringify(cookMessage));
@@ -390,7 +498,7 @@
 
     if (!customMesh) {
       customMesh = new BABYLON.Mesh("customMesh", scene);
-      customMesh.material = objectMaterial;
+      customMesh.material = materials[parameterSchemas[SCHEMA_INDEX].material_name];
       vertexData.applyToMesh(customMesh, true);
 
       shadowGenerator.addShadowCaster(customMesh);
@@ -398,28 +506,6 @@
       vertexData.updateMesh(customMesh, true);
     }
   };
-
-  // Slider event listeners
-  document.getElementById("lengthSlider").addEventListener("input", (e) => {
-    const value = parseFloat(e.target.value);
-    document.getElementById("lengthValue").textContent = value.toFixed(1);
-    paramValues.length = value;
-    regenerateMesh();
-  });
-
-  document.getElementById("radiusSlider").addEventListener("input", (e) => {
-    const value = parseFloat(e.target.value);
-    document.getElementById("radiusValue").textContent = value.toFixed(1);
-    paramValues.radius = value;
-    regenerateMesh();
-  });
-
-  document.getElementById("numsidesSlider").addEventListener("input", (e) => {
-    const value = parseInt(e.target.value);
-    document.getElementById("numsidesValue").textContent = value;
-    paramValues.numsides = value;
-    regenerateMesh();
-  });
 
   // Toggle wireframe mode
   document.getElementById("wireframeToggle").addEventListener("change", () => {
@@ -456,6 +542,8 @@
   window.addEventListener("resize", () => {
     engine.resize();
   });
+
+  initializeParameters();
 </script>
 </body>
 </html>
