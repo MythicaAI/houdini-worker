@@ -165,10 +165,72 @@
   <div id="logContent" style="font-family: monospace; white-space: pre-wrap; padding: 15px; height: calc(400px - 45px); overflow-y: auto;"></div>
 </div>
 <script>
+  // ================================================
+  // Demo Parameter Schemas
+  // ================================================
+  const parameterSchemas = [
+    {
+      name: 'Crystal',
+      file_path: 'assets/mythica.crystal.1.0.hda',
+      material_name: 'crystal',
+      parameters: {
+        length: {
+          type: 'slider',
+          label: 'Length',
+          min: 0.5,
+          max: 5,
+          step: 0.1,
+          default: 2.5
+        },
+        radius: {
+          type: 'slider',
+          label: 'Radius',
+          min: 0.1,
+          max: 2,
+          step: 0.1,
+          default: 0.6
+        },
+        numsides: {
+          type: 'slider',
+          label: 'Sides',
+          min: 3,
+          max: 12,
+          step: 1,
+          default: 6
+        }
+      }
+    }
+  ];
+
+  const SCHEMA_INDEX = 0;
+
+  // ================================================
+  // Demo Materials
+  // ================================================
   const canvas = document.getElementById("renderCanvas");
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
 
+  const materials = {
+    crystal: (() => {
+      const mat = new BABYLON.PBRMaterial("pbr", scene);
+      mat.metallic = 1.0;
+      mat.roughness = 0.06;
+      mat.subSurface.isRefractionEnabled = true;
+      mat.subSurface.indexOfRefraction = 1.5;
+      mat.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
+      mat.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
+      mat.emissiveIntensity = 0.75;
+      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
+      return mat;
+    })()
+  };
+
+  // ================================================
+  // Scene Setup
+  // ================================================
+
+  // Environment
   scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/textures/country.env", scene);
   scene.clearColor = new BABYLON.Color4(1.0, 1.0, 1.0, 1.0);
 
@@ -216,56 +278,9 @@
   groundMaterial.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
   ground.material = groundMaterial;
 
-  const materials = {
-    crystal: (() => {
-      const mat = new BABYLON.PBRMaterial("pbr", scene);
-      mat.metallic = 1.0;
-      mat.roughness = 0.06;
-      mat.subSurface.isRefractionEnabled = true;
-      mat.subSurface.indexOfRefraction = 1.5;
-      mat.subSurface.tintColor = new BABYLON.Color3(1, 0.5, 1);
-      mat.emissiveColor = new BABYLON.Color3(0.0, 0.3, 1.0);
-      mat.emissiveIntensity = 0.75;
-      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
-      return mat;
-    })()
-  };
-
-  const parameterSchemas = [
-    {
-      name: 'Crystal',
-      file_path: 'assets/mythica.crystal.1.0.hda',
-      material_name: 'crystal',
-      parameters: {
-        length: {
-          type: 'slider',
-          label: 'Length',
-          min: 0.5,
-          max: 5,
-          step: 0.1,
-          default: 2.5
-        },
-        radius: {
-          type: 'slider',
-          label: 'Radius',
-          min: 0.1,
-          max: 2,
-          step: 0.1,
-          default: 0.6
-        },
-        numsides: {
-          type: 'slider',
-          label: 'Sides',
-          min: 3,
-          max: 12,
-          step: 1,
-          default: 6
-        }
-      }
-    }
-  ];
-
-  const SCHEMA_INDEX = 0;
+  // ================================================
+  // Parameter Initialization
+  // ================================================
 
   const paramValues = {};
 
@@ -303,6 +318,10 @@
       }
     });
   }
+
+  // ================================================
+  // WebSocket Runtime
+  // ================================================
 
   // Request state tracking
   let requestInFlight = false;
