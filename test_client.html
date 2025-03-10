@@ -227,29 +227,32 @@
   objectMaterial.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/slate_floor_02/slate_floor_02_ao_1k.png", scene);
 
   const parameterSchema = {
-    length: {
-      type: 'slider',
-      label: 'Length',
-      min: 0.5,
-      max: 5,
-      step: 0.1,
-      default: 2.5
-    },
-    radius: {
-      type: 'slider',
-      label: 'Radius',
-      min: 0.1,
-      max: 2,
-      step: 0.1,
-      default: 0.6
-    },
-    numsides: {
-      type: 'slider',
-      label: 'Sides',
-      min: 3,
-      max: 12,
-      step: 1,
-      default: 6
+    file_path: 'assets/mythica.crystal.1.0.hda',
+    parameters: {
+      length: {
+        type: 'slider',
+        label: 'Length',
+        min: 0.5,
+        max: 5,
+        step: 0.1,
+        default: 2.5
+      },
+      radius: {
+        type: 'slider',
+        label: 'Radius',
+        min: 0.1,
+        max: 2,
+        step: 0.1,
+        default: 0.6
+      },
+      numsides: {
+        type: 'slider',
+        label: 'Sides',
+        min: 3,
+        max: 12,
+        step: 1,
+        default: 6
+      }
     }
   };
 
@@ -258,7 +261,7 @@
   function initializeParameters() {
     const container = document.getElementById('parameterContainer');
 
-    Object.entries(parameterSchema).forEach(([key, config]) => {
+    Object.entries(parameterSchema.parameters).forEach(([key, config]) => {
       paramValues[key] = config.default;
 
       if (config.type === 'slider') {
@@ -327,7 +330,7 @@
       "data": {
         "hda_path": {
           "file_id": "file_xxx",
-          "file_path": "assets/mythica.crystal.1.0.hda"
+          "file_path": parameterSchema.file_path
         },
         "definition_index": 0,
         "format": format,
