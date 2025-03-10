@@ -209,7 +209,7 @@
           type: 'slider',
           label: 'Randomize',
           min: 0,
-          max: 50,
+          max: 100,
           step: 1,
           default: 0,
         },
@@ -220,6 +220,14 @@
           max: 50,
           step: 1,
           default: 25
+        },
+        flatten: {
+          type: 'slider',
+          label: 'Flatten',
+          min: 0,
+          max: 1,
+          step: 0.1,
+          default: 0.3
         },
         npts: {
           type: 'hidden',
@@ -282,12 +290,14 @@
 
   // Create a camera
   const camera = new BABYLON.ArcRotateCamera("Camera", 0.1, 1.0, 8, BABYLON.Vector3.Zero(), scene);
-  camera.setTarget(new BABYLON.Vector3(0, 1, 0));
+  camera.setTarget(new BABYLON.Vector3(0, 0.2, 0));
   camera.attachControl(canvas, true);
-  camera.lowerRadiusLimit = 3;
+  camera.lowerRadiusLimit = 2;
   camera.upperRadiusLimit = 20;
   camera.panningSensibility = 0;
   camera.wheelPrecision = 15;
+  camera.lowerBetaLimit = 0.2;
+  camera.upperBetaLimit = Math.PI / 2.2;
 
   // Create a light
   const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
