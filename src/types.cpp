@@ -29,6 +29,43 @@ static EOutputFormat parse_output_format(const std::string& format_str)
     }
 }
 
+static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+{
+    const UT_JSONValue* file_path = value.get("file_path");
+    if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
+    {
+        return false;
+    }
+
+    std::string file_path_str = file_path->getS();
+    std::string resolved_path = file_cache.get_file_by_path(file_path_str);
+    if (resolved_path.empty())
+    {
+        // Fall back to using files baked into the image
+        if (std::filesystem::exists(file_path_str))
+        {
+            resolved_path = file_path_str;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    param = FileParameter{"", resolved_path};
+    return true;
+}
+
+static bool parse_map_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+{
+    if (parse_file_parameter(value, param, file_cache, writer))
+    {
+        return true;
+    }
+
+    return false;
+}
+
 static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, FileCache& file_cache, StreamWriter& writer)
 {
     if (!data || data->getType() != UT_JSONValue::JSON_MAP)
@@ -57,30 +94,14 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                 break;
             case UT_JSONValue::JSON_MAP:
             {
-                const UT_JSONValue* file_path = value.get("file_path");
-                if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
+                Parameter param;
+                if (!parse_map_parameter(value, param, file_cache, writer))
                 {
-                    writer.error("Failed to parse file parameter: " + key.toStdString());
+                    writer.error("Failed to parse map parameter: " + key.toStdString());
                     break;
                 }
 
-                std::string file_path_str = file_path->getS();
-                std::string resolved_path = file_cache.get_file_by_path(file_path_str);
-                if (resolved_path.empty())
-                {
-                    // Fall back to using files baked into the image
-                    if (std::filesystem::exists(file_path_str))
-                    {
-                        resolved_path = file_path_str;
-                    }
-                    else
-                    {
-                        writer.error("File not found: " + file_path_str);
-                        break;
-                    }
-                }
-
-                paramSet[key.toStdString()] = Parameter(FileParameter{"", resolved_path});
+                paramSet[key.toStdString()] = param;
                 break;
             }
             case UT_JSONValue::JSON_ARRAY:
