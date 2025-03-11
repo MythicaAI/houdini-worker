@@ -13,7 +13,7 @@ set(TEST_SOURCES
         ../encoder.cpp
         ../reader.h
         ../reader.cpp
-        ../reader_item_cbor.cpp)
+        ../decode_reader_items.cpp)
 
 file(GLOB QCBOR_SOURCES
         "../../../third_party/qcbor/src/*.c")

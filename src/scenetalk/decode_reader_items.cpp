@@ -2,6 +2,7 @@
 
 #include "frame.h"
 #include "reader.h"
+#include "decode_reader_items.h"
 
 template<>
 bool scene_talk::decode(
@@ -188,72 +189,4 @@ bool scene_talk::decode(
     }
 
     return name_found && type_found && value_found;
-}
-
-// static
-template<>
-bool scene_talk::decode(
-    const frame_payload &payload,
-    reader::file_stream &out) {
-    QCBORDecodeContext decodeContext;
-    QCBORDecode_Init(
-        &decodeContext,
-        UsefulBufC{(void *) payload.data(), payload.size()},
-        QCBOR_DECODE_MODE_NORMAL);
-
-    QCBORItem topItem;
-    QCBORDecode_GetNext(&decodeContext, &topItem);
-    if (topItem.uDataType != QCBOR_TYPE_MAP) {
-        return false;
-    }
-
-    size_t mapEntries = topItem.val.uCount;
-    bool name_found = false;
-    bool hash_found = false;
-    bool data_found = false;
-
-    for (size_t i = 0; i < mapEntries; i++) {
-        QCBORItem item;
-        QCBORDecode_GetNext(&decodeContext, &item);
-        if (item.uDataType != QCBOR_TYPE_TEXT_STRING) {
-            QCBORDecode_GetNext(&decodeContext, &item);
-            continue;
-        }
-
-        UsefulBufC key = item.val.string;
-        QCBORDecode_GetNext(&decodeContext, &item);
-
-        if (UsefulBuf_Compare(key, UsefulBuf_FromSZ("name")) == 0) {
-            if (item.uDataType == QCBOR_TYPE_TEXT_STRING) {
-                out.name.assign((const char *) item.val.string.ptr, item.val.string.len);
-                name_found = true;
-            }
-        } else if (UsefulBuf_Compare(key, UsefulBuf_FromSZ("id")) == 0) {
-            if (item.uDataType == QCBOR_TYPE_BYTE_STRING) {
-                out.id.assign(
-                    (const char *) item.val.string.ptr,
-                    item.val.string.len
-                );
-                hash_found = true;
-            }
-        } else if (UsefulBuf_Compare(key, UsefulBuf_FromSZ("hash")) == 0) {
-            if (item.uDataType == QCBOR_TYPE_BYTE_STRING) {
-                out.hash.assign(
-                    (const char *) item.val.string.ptr,
-                    item.val.string.len
-                );
-                hash_found = true;
-            }
-        } else if (UsefulBuf_Compare(key, UsefulBuf_FromSZ("data")) == 0) {
-            if (item.uDataType == QCBOR_TYPE_BYTE_STRING) {
-                //file_stream.data.assign(
-                 //   (const char *) item.val.string.ptr,
-                  //  item.val.string.len
-                //)//;
-                data_found = true;
-            }
-        }
-    }
-
-    return name_found && hash_found && data_found;
 }

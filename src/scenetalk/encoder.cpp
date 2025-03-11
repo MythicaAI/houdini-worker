@@ -162,7 +162,7 @@ void encoder::ping_pong() {
     QCBOREncode_Init(&encode_ctx, payload);
 
     QCBOREncode_OpenMap(&encode_ctx);
-    QCBOREncode_AddDoubleToMap(&encode_ctx, "time_ms", timestamp);
+    QCBOREncode_AddDoubleToMap(&encode_ctx, "timestamp", timestamp);
     QCBOREncode_CloseMap(&encode_ctx);
 
     UsefulBufC payload_cbor;
@@ -170,7 +170,7 @@ void encoder::ping_pong() {
         return;
     }
 
-    write_frame(frame_type::PING_PONG,
+    write_frame(frame_type::CONTROL,
         frame_payload(
             static_cast<const uint8_t*>(payload_cbor.ptr), payload_cbor.len));
 }
@@ -189,7 +189,7 @@ void encoder::flow_control(int backoff_value) {
         return;
     }
 
-    write_frame(frame_type::FLOW,
+    write_frame(frame_type::CONTROL,
         frame_payload(
             static_cast<const uint8_t*>(payload_cbor.ptr), payload_cbor.len));
 }
@@ -236,7 +236,7 @@ bool encoder::valid_encoding(QCBORError cbor_err) {
     return false;
 }
 
-void encoder::file(const file_ref& ref, bool status) {
+void encoder::file_ref(const file_ref& ref, bool status) {
     QCBOREncodeContext encode_ctx;
     UsefulBuf payload = { payload_buffer_, max_payload_size_ };
     QCBOREncode_Init(&encode_ctx, payload);
@@ -272,7 +272,7 @@ void encoder::file(const file_ref& ref, bool status) {
         return;
     }
 
-    write_frame(frame_type::FILE_REF,
+    write_frame(frame_type::ATTRIBUTE,
         frame_payload(
             static_cast<const uint8_t*>(payload_cbor.ptr), payload_cbor.len));
 }

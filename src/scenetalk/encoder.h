@@ -75,7 +75,7 @@ public:
     /**
      * @brief Send a FILE frame
      */
-    void file(const file_ref& file_ref, bool status = false);
+    void file_ref(const file_ref& file_ref, bool status = false);
 
     /**
      * @brief Send a HELLO frame

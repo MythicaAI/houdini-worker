@@ -444,7 +444,8 @@
 
   // WebSocket setup
   //const ws = new WebSocket("ws://scenetalk.mythica.gg");
-  const ws = new WebSocket("ws://scenetalk.mythica.gg:8765");
+  //const ws = new WebSocket("ws://scenetalk.mythica.gg:8765");
+  const ws = new WebSocket("ws://localhost:8765");
 
   ws.onopen = (event) => {
     console.log("connected to socket");

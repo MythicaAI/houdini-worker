@@ -18,7 +18,7 @@ add_executable(${executable_name}
         frame.h
         reader.h
         reader.cpp
-        reader_item_cbor.cpp
+        decode_reader_items.cpp
         ${QCBOR_SOURCES})
 
 add_subdirectory(tests)

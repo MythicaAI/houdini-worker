@@ -1,12 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <unordered_map>
-#include <functional>
 #include <variant>
 
-#include "file_ref.h"
 #include "frame.h"
 #include "frame_decoder.h"
 
@@ -54,14 +51,7 @@ public:
         std::string attr_type;
         std::span<const uint8_t> payload;
     };
-    struct file_stream {
-        uint32_t stream_id = 0;
-        uint32_t total_size_bytes = 0;
-        std::string name;
-        std::string id;
-        std::string hash;
-        std::span<const uint8_t> payload;
-    };
+
     struct error {
         std::string message;
     };
@@ -70,7 +60,6 @@ public:
         begin_context,
         end_context,
         attr_stream,
-        file_stream,
         error>;
 
     bool read(item &out);
@@ -81,8 +70,8 @@ private:
 
     // Stream state for handling partial frames
     struct stream_state {
-        uint32_t expected_seq;
-        item item;
+        uint32_t expected_seq = 0;
+        item item = {};
     };
 
     // Process a partial frame
@@ -101,25 +90,5 @@ private:
     item current_item_;
 };
 
-/**
- * Decoder method used to extract CBOR elements out of payloads
- * @tparam T
- * @param payload
- * @param out
- * @return
- */
-template<typename T>
-bool decode(const frame_payload &payload, T &out);
-
-template<>
-bool decode(const frame_payload &payload, reader::partial_header &header);
-template<>
-bool decode(const frame_payload &payload, reader::begin_context &out);
-template<>
-bool decode(const frame_payload &payload, reader::end_context &item);
-template<>
-bool decode(const frame_payload &payload, reader::attr_stream &item);
-template<>
-bool decode(const frame_payload &payload, reader::file_stream &item);
 
 } // namespace scene_talk

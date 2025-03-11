@@ -4,26 +4,20 @@
 #include <vector>
 #include <array>
 #include <functional>
-#include <memory>
-#include <string>
 #include <optional>
 #include <span>
-
-#include "../../../../Program Files/Side Effects Software/Houdini 20.5.410/toolkit/include/SYS/SYS_Types.h"
 
 namespace scene_talk {
 
 // Frame type constants
 enum class frame_type : uint8_t {
     HELLO = 'H',
-    PING_PONG = 'P',  // collapse into control
+    CONTROL = 'C',
     BEGIN = 'B',
     END = 'E',
     LOG = 'L',
     ATTRIBUTE = 'S',
-    FILE_REF = 'F', // collapse into attribute
     PARTIAL = 'Z', // collapse into frame flags
-    FLOW = 'X',  // collapse into control
 };
 
 // Frame header size (type + flags + length)
@@ -54,10 +48,10 @@ struct frame {
         : type(t), flags(f), payload(p) {}
 
     // Access the partial flag
-    bool is_partial() const { return flags & FLAG_PARTIAL; }
+    [[nodiscard]] bool is_partial() const { return flags & FLAG_PARTIAL; }
 
     // Access the stream ID
-    uint32_t stream_id() const { return flags >> 1; }
+    [[nodiscard]] uint32_t stream_id() const { return flags >> 1; }
 
     // Serializes frame to a byte vector including header, returns used bytes or 0 if failure
     size_t serialize(uint8_t *dest, size_t size) const;

@@ -77,12 +77,6 @@ void reader::decode_item(const frame &f, item &out) {
             valid_content = decode(f.payload, attr);
         }
         break;
-        case frame_type::FILE_REF: {
-            auto ref = out.emplace<file_stream>();
-            ref.stream_id = stream_id_;
-            valid_content = decode(f.payload, ref);
-        }
-        break;
     }
 
     if (!valid_content) {

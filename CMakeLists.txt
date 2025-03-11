@@ -54,4 +54,4 @@ target_link_libraries(${executable_name}
 # Configure target properties
 houdini_configure_target(${executable_name})
 
-#add_subdirectory("src/scenetalk")
+add_subdirectory("src/scenetalk")
