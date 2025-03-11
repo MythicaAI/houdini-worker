@@ -24,17 +24,10 @@ struct FileParameter
     std::string file_path;
 };
 
-struct FloatRampPoint
+struct RampPoint
 {
     float position;
-    float value;
-    UT_SPLINE_BASIS basis;
-};
-
-struct ColorRampPoint
-{
-    float position;
-    float rgba[4];
+    float value[4];
     UT_SPLINE_BASIS basis;
 };
 
@@ -46,8 +39,7 @@ using Parameter = std::variant<
     FileParameter,
     std::vector<int64_t>,
     std::vector<double>,
-    std::vector<FloatRampPoint>,
-    std::vector<ColorRampPoint>
+    std::vector<RampPoint>
 >;
 using ParameterSet = std::map<std::string, Parameter>;
 

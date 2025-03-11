@@ -291,31 +291,14 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
                 node->setFloat(key.c_str(), i, 0.0f, float_array[i]);
             }
         }
-        else if (std::holds_alternative<std::vector<FloatRampPoint>>(value))
+        else if (std::holds_alternative<std::vector<RampPoint>>(value))
         {
-            const auto& float_ramp = std::get<std::vector<FloatRampPoint>>(value);
+            const auto& ramp_points = std::get<std::vector<RampPoint>>(value);
 
             UT_Ramp ramp;
-            for (const auto& point : float_ramp)
+            for (const auto& point : ramp_points)
             {
-                float rgba[4] = { point.value, point.value, point.value, point.value };
-                ramp.addNode(point.position, rgba, point.basis);
-            }
-
-            PRM_Parm* rampParm = node->getParmPtr(key.c_str());
-            if (rampParm)
-            {
-                node->updateMultiParmFromRamp(0.0, ramp, *rampParm, false, PRM_AK_SET_KEY);
-            }
-        }
-        else if (std::holds_alternative<std::vector<ColorRampPoint>>(value))
-        {
-            const auto& color_ramp = std::get<std::vector<ColorRampPoint>>(value);
-
-            UT_Ramp ramp;
-            for (const auto& point : color_ramp)
-            {
-                float rgba[4] = { point.rgba[0], point.rgba[1], point.rgba[2], point.rgba[3] };
+                float rgba[4] = { point.value[0], point.value[1], point.value[2], point.value[3] };
                 ramp.addNode(point.position, rgba, point.basis);
             }
 

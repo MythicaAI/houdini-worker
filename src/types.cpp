@@ -97,125 +97,95 @@ static bool parse_basis_parameter(const UT_StringHolder& string, UT_SPLINE_BASIS
     return false;
 }
 
-static bool parse_float_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
 {
     const UT_JSONValueArray* array = value.getArray();
     if (!array || array->size() == 0)
     {
+        writer.error("Ramp parameter is not an array");
         return false;
     }
 
-    std::vector<FloatRampPoint> float_ramp;
+    std::vector<RampPoint> ramp_points;
     for (const auto& [idx, array_value] : value.enumerate())
     {
         if (array_value.getType() != UT_JSONValue::JSON_MAP)
         {
+            writer.error("Ramp point is not a map");
             return false;
         }
 
+        // Position
         const UT_JSONValue* position = array_value.get("position");
+        if (!position || !position->isNumber())
+        {
+            writer.error("Ramp point missing position");
+            return false;
+        }
+
+        // Value
         const UT_JSONValue* value = array_value.get("value");
-        const UT_JSONValue* basis = array_value.get("basis");
-
-        if (!position || position->getType() != UT_JSONValue::JSON_REAL ||
-            !value || value->getType() != UT_JSONValue::JSON_REAL ||
-            !basis || basis->getType() != UT_JSONValue::JSON_STRING)
+        if (!value)
         {
+            writer.error("Ramp point missing value");
+            return false;
+        }
+
+        float values[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        if (value->getType() == UT_JSONValue::JSON_ARRAY)
+        {
+            const UT_JSONValueArray* rgba_array = value->getArray();
+            if (!rgba_array || rgba_array->size() != 4)
+            {
+                writer.error("Ramp point array value must have 4 entries");
+                return false;
+            }
+
+            for (const auto& [idx, rgba_array_value] : value->enumerate())
+            {
+                if (!rgba_array_value.isNumber())
+                {
+                    writer.error("Ramp point array value must be a number");
+                    return false;
+                }
+                values[idx] = (float)rgba_array_value.getF();
+            }
+        }
+        else if (value->isNumber())
+        {
+            std::fill_n(values, 4, (float)value->getF());
+        }
+        else
+        {
+            writer.error("Ramp point value must be float or color");
+            return false;
+        }
+
+        // Basis
+        const UT_JSONValue* basis = array_value.get("basis");
+        if (!basis || basis->getType() != UT_JSONValue::JSON_STRING)
+        {
+            writer.error("Ramp point is missing basis");
             return false;
         }
 
         UT_SPLINE_BASIS basis_value;
         if (!parse_basis_parameter(basis->getString(), basis_value))
         {
+            writer.error("Ramp point has invalid basis");
             return false;
         }
 
-        FloatRampPoint point{
+        RampPoint point{
             (float)position->getF(),
-            (float)value->getF(),
+            { values[0], values[1], values[2], values[3] },
             basis_value
         };
-        float_ramp.push_back(point);
+        ramp_points.push_back(point);
     }
 
-    param = Parameter(float_ramp);
+    param = Parameter(ramp_points);
     return true;
-}
-
-static bool parse_color_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
-{
-    const UT_JSONValueArray* array = value.getArray();
-    if (!array || array->size() == 0)
-    {
-        return false;
-    }
-
-    std::vector<ColorRampPoint> color_ramp;
-    for (const auto& [idx, array_value] : value.enumerate())
-    {
-        if (array_value.getType() != UT_JSONValue::JSON_MAP)
-        {
-            return false;
-        }
-
-        const UT_JSONValue* position = array_value.get("position");
-        const UT_JSONValue* value_rgba = array_value.get("value");
-        const UT_JSONValue* basis = array_value.get("basis");
-
-        if (!position || position->getType() != UT_JSONValue::JSON_REAL ||
-            !value_rgba || value_rgba->getType() != UT_JSONValue::JSON_ARRAY ||
-            !basis || basis->getType() != UT_JSONValue::JSON_STRING)
-        {
-            return false;
-        }
-
-        UT_SPLINE_BASIS basis_value;
-        if (!parse_basis_parameter(basis->getString(), basis_value))
-        {
-            return false;
-        }
-
-        float rgba[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        const UT_JSONValueArray* rgba_array = value_rgba->getArray();
-        if (!rgba_array || rgba_array->size() != 4 ||
-            array_value.getUniformArrayType() != UT_JSONValue::JSON_REAL)
-        {
-            return false;
-        }
-
-        for (const auto& [idx, rgba_array_value] : value_rgba->enumerate())
-        {
-            rgba[idx] = (float)rgba_array_value.getF();
-        }
-
-        ColorRampPoint point{
-            (float)position->getF(),
-            { rgba[0], rgba[1], rgba[2], rgba[3] },
-            basis_value
-        };
-        color_ramp.push_back(point);
-    }
-
-    param = Parameter(color_ramp);
-    return true;
-}
-
-static bool parse_map_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
-{
-    if (parse_file_parameter(value, param, file_cache, writer))
-    {
-        return true;
-    }
-    if (parse_float_ramp_parameter(value, param, file_cache, writer))
-    {
-        return true;
-    }
-    if (parse_color_ramp_parameter(value, param, file_cache, writer))
-    {
-        return true;
-    }
-
-    return false;
 }
 
 static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, FileCache& file_cache, StreamWriter& writer)
@@ -247,10 +217,10 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
             case UT_JSONValue::JSON_MAP:
             {
                 Parameter param;
-                if (!parse_map_parameter(value, param, file_cache, writer))
+                if (!parse_file_parameter(value, param, file_cache, writer))
                 {
                     writer.error("Failed to parse map parameter: " + key.toStdString());
-                    break;
+                    return false;
                 }
 
                 paramSet[key.toStdString()] = param;
@@ -262,16 +232,21 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                 if (array->size() == 0)
                 {
                     writer.error("Empty array parameter: " + key.toStdString());
-                    break;
+                    return false;
                 }
 
-                switch (value.getUniformArrayType())
+                switch (array->get(0)->getType())
                 {
                     case UT_JSONValue::JSON_INT:
                     {
                         std::vector<int64_t> int_array;
                         for (const auto& [idx, array_value] : value.enumerate())
                         {
+                            if (array_value.getType() != UT_JSONValue::JSON_INT)
+                            {
+                                writer.error("Array parameter has mixed types: " + key.toStdString());
+                                return false;
+                            }
                             int_array.push_back(array_value.getI());
                         }
                         paramSet[key.toStdString()] = Parameter(int_array);
@@ -282,17 +257,29 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                         std::vector<double> float_array;
                         for (const auto& [idx, array_value] : value.enumerate())
                         {
+                            if (array_value.getType() != UT_JSONValue::JSON_REAL)
+                            {
+                                writer.error("Array parameter has mixed types: " + key.toStdString());
+                                return false;
+                            }
                             float_array.push_back(array_value.getF());
                         }
                         paramSet[key.toStdString()] = Parameter(float_array);
                         break;
                     }
-                    case UT_JSONValue::JSON_NULL:
-                        writer.error("Array parameter has mixed types: " + key.toStdString());
+                    case UT_JSONValue::JSON_MAP:
+                    {
+                        Parameter param;
+                        if (!parse_ramp_parameter(value, param, file_cache, writer))
+                        {
+                            return false;
+                        }
+                        paramSet[key.toStdString()] = param;
                         break;
+                    }
                     default:
                         writer.error("Unsupported array type: " + key.toStdString());
-                        break;
+                        return false;
                 }
                 break;
             }
