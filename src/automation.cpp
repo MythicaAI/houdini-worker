@@ -274,6 +274,22 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
         {
             node->setInt(key.c_str(), 0, 0.0f, std::get<bool>(value) ? 1 : 0);
         }
+        else if (std::holds_alternative<std::vector<int64_t>>(value))
+        {
+            const auto& int_array = std::get<std::vector<int64_t>>(value);
+            for (size_t i = 0; i < int_array.size(); ++i)
+            {
+                node->setInt(key.c_str(), i, 0.0f, int_array[i]);
+            }
+        }
+        else if (std::holds_alternative<std::vector<double>>(value))
+        {
+            const auto& float_array = std::get<std::vector<double>>(value);
+            for (size_t i = 0; i < float_array.size(); ++i)
+            {
+                node->setFloat(key.c_str(), i, 0.0f, float_array[i]);
+            }
+        }
     }
 }
 

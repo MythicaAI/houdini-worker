@@ -30,9 +30,7 @@ using Parameter = std::variant<
     bool,
     FileParameter,
     std::vector<int64_t>,
-    std::vector<double>,
-    std::vector<std::string>,
-    std::vector<FileParameter>
+    std::vector<double>
 >;
 using ParameterSet = std::map<std::string, Parameter>;
 

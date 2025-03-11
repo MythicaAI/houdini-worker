@@ -8,6 +8,7 @@
 #include <iostream>
 #include <regex>
 #include <UT/UT_JSONValue.h>
+#include <UT/UT_JSONValueArray.h>
 
 namespace util
 {
@@ -38,8 +39,10 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
 
     // Parse parameter set
     ParameterSet paramSet;
-    for (const auto& [idx, key, value] : data->enumerateMap()) {
-        switch (value.getType()) {
+    for (const auto& [idx, key, value] : data->enumerateMap())
+    {
+        switch (value.getType())
+        {
             case UT_JSONValue::JSON_INT:
                 paramSet[key.toStdString()] = Parameter(value.getI());
                 break;
@@ -80,11 +83,46 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                 paramSet[key.toStdString()] = Parameter(FileParameter{"", resolved_path});
                 break;
             }
-            /*
             case UT_JSONValue::JSON_ARRAY:
-                paramSet[key.toStdString()] = Parameter(value.getArray());
+            {
+                const UT_JSONValueArray* array = value.getArray();
+                if (array->size() == 0)
+                {
+                    writer.error("Empty array parameter: " + key.toStdString());
+                    break;
+                }
+
+                switch (value.getUniformArrayType())
+                {
+                    case UT_JSONValue::JSON_INT:
+                    {
+                        std::vector<int64_t> int_array;
+                        for (const auto& [idx, array_value] : value.enumerate())
+                        {
+                            int_array.push_back(array_value.getI());
+                        }
+                        paramSet[key.toStdString()] = Parameter(int_array);
+                        break;
+                    }
+                    case UT_JSONValue::JSON_REAL:
+                    {
+                        std::vector<double> float_array;
+                        for (const auto& [idx, array_value] : value.enumerate())
+                        {
+                            float_array.push_back(array_value.getF());
+                        }
+                        paramSet[key.toStdString()] = Parameter(float_array);
+                        break;
+                    }
+                    case UT_JSONValue::JSON_NULL:
+                        writer.error("Array parameter has mixed types: " + key.toStdString());
+                        break;
+                    default:
+                        writer.error("Unsupported array type: " + key.toStdString());
+                        break;
+                }
                 break;
-            */
+            }
         }
     }
 
