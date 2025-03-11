@@ -12,6 +12,7 @@
 #include <GU/GU_Detail.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
+#include <UT/UT_Ramp.h>
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
@@ -288,6 +289,23 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
             for (size_t i = 0; i < float_array.size(); ++i)
             {
                 node->setFloat(key.c_str(), i, 0.0f, float_array[i]);
+            }
+        }
+        else if (std::holds_alternative<std::vector<RampPoint>>(value))
+        {
+            const auto& ramp_points = std::get<std::vector<RampPoint>>(value);
+
+            UT_Ramp ramp;
+            for (const auto& point : ramp_points)
+            {
+                float values[4] = { point.value[0], point.value[1], point.value[2], point.value[3] };
+                ramp.addNode(point.position, values, point.basis);
+            }
+
+            PRM_Parm* rampParm = node->getParmPtr(key.c_str());
+            if (rampParm)
+            {
+                node->updateMultiParmFromRamp(0.0, ramp, *rampParm, false, PRM_AK_SET_KEY);
             }
         }
     }
