@@ -56,6 +56,47 @@ static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, Fi
     return true;
 }
 
+static bool parse_basis_parameter(const UT_StringHolder& string, UT_SPLINE_BASIS& basis)
+{
+    if (string == "Constant")
+    {
+        basis = UT_SPLINE_CONSTANT;
+        return true;
+    }
+    else if (string == "Linear")
+    {
+        basis = UT_SPLINE_LINEAR;
+        return true;
+    }
+    else if (string == "CatmullRom")
+    {
+        basis = UT_SPLINE_CATMULL_ROM;
+        return true;
+    }
+    else if (string == "MonotoneCubic")
+    {
+        basis = UT_SPLINE_MONOTONECUBIC;
+        return true;
+    }
+    else if (string == "Bezier")
+    {
+        basis = UT_SPLINE_BEZIER;
+        return true;
+    }
+    else if (string == "BSpline")
+    {
+        basis = UT_SPLINE_BSPLINE;
+        return true;
+    }
+    else if (string == "Hermite")
+    {
+        basis = UT_SPLINE_HERMITE;
+        return true;
+    }
+
+    return false;
+}
+
 static bool parse_float_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
 {
     const UT_JSONValueArray* array = value.getArray();
@@ -78,7 +119,13 @@ static bool parse_float_ramp_parameter(const UT_JSONValue& value, Parameter& par
 
         if (!position || position->getType() != UT_JSONValue::JSON_REAL ||
             !value || value->getType() != UT_JSONValue::JSON_REAL ||
-            !basis || basis->getType() != UT_JSONValue::JSON_INT)
+            !basis || basis->getType() != UT_JSONValue::JSON_STRING)
+        {
+            return false;
+        }
+
+        UT_SPLINE_BASIS basis_value;
+        if (!parse_basis_parameter(basis->getString(), basis_value))
         {
             return false;
         }
@@ -86,7 +133,7 @@ static bool parse_float_ramp_parameter(const UT_JSONValue& value, Parameter& par
         FloatRampPoint point{
             (float)position->getF(),
             (float)value->getF(),
-            (UT_SPLINE_BASIS)basis->getI()
+            basis_value
         };
         float_ramp.push_back(point);
     }
@@ -117,7 +164,13 @@ static bool parse_color_ramp_parameter(const UT_JSONValue& value, Parameter& par
 
         if (!position || position->getType() != UT_JSONValue::JSON_REAL ||
             !value_rgba || value_rgba->getType() != UT_JSONValue::JSON_ARRAY ||
-            !basis || basis->getType() != UT_JSONValue::JSON_INT)
+            !basis || basis->getType() != UT_JSONValue::JSON_STRING)
+        {
+            return false;
+        }
+
+        UT_SPLINE_BASIS basis_value;
+        if (!parse_basis_parameter(basis->getString(), basis_value))
         {
             return false;
         }
@@ -138,7 +191,7 @@ static bool parse_color_ramp_parameter(const UT_JSONValue& value, Parameter& par
         ColorRampPoint point{
             (float)position->getF(),
             { rgba[0], rgba[1], rgba[2], rgba[3] },
-            (UT_SPLINE_BASIS)basis->getI()
+            basis_value
         };
         color_ramp.push_back(point);
     }
