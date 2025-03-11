@@ -34,6 +34,7 @@ static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, Fi
     const UT_JSONValue* file_path = value.get("file_path");
     if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
     {
+        writer.error("File parameter is missing file_path");
         return false;
     }
 
@@ -219,7 +220,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                 Parameter param;
                 if (!parse_file_parameter(value, param, file_cache, writer))
                 {
-                    writer.error("Failed to parse map parameter: " + key.toStdString());
+                    writer.error("Failed to parse file parameter: " + key.toStdString());
                     return false;
                 }
 
@@ -272,6 +273,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                         Parameter param;
                         if (!parse_ramp_parameter(value, param, file_cache, writer))
                         {
+                            writer.error("Failed to parse ramp parameter: " + key.toStdString());
                             return false;
                         }
                         paramSet[key.toStdString()] = param;

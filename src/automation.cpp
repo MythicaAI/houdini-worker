@@ -298,8 +298,8 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
             UT_Ramp ramp;
             for (const auto& point : ramp_points)
             {
-                float rgba[4] = { point.value[0], point.value[1], point.value[2], point.value[3] };
-                ramp.addNode(point.position, rgba, point.basis);
+                float values[4] = { point.value[0], point.value[1], point.value[2], point.value[3] };
+                ramp.addNode(point.position, values, point.basis);
             }
 
             PRM_Parm* rampParm = node->getParmPtr(key.c_str());
