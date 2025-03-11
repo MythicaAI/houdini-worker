@@ -56,9 +56,108 @@ static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, Fi
     return true;
 }
 
+static bool parse_float_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+{
+    const UT_JSONValueArray* array = value.getArray();
+    if (!array || array->size() == 0)
+    {
+        return false;
+    }
+
+    std::vector<FloatRampPoint> float_ramp;
+    for (const auto& [idx, array_value] : value.enumerate())
+    {
+        if (array_value.getType() != UT_JSONValue::JSON_MAP)
+        {
+            return false;
+        }
+
+        const UT_JSONValue* position = array_value.get("position");
+        const UT_JSONValue* value = array_value.get("value");
+        const UT_JSONValue* basis = array_value.get("basis");
+
+        if (!position || position->getType() != UT_JSONValue::JSON_REAL ||
+            !value || value->getType() != UT_JSONValue::JSON_REAL ||
+            !basis || basis->getType() != UT_JSONValue::JSON_INT)
+        {
+            return false;
+        }
+
+        FloatRampPoint point{
+            (float)position->getF(),
+            (float)value->getF(),
+            (UT_SPLINE_BASIS)basis->getI()
+        };
+        float_ramp.push_back(point);
+    }
+
+    param = Parameter(float_ramp);
+    return true;
+}
+
+static bool parse_color_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+{
+    const UT_JSONValueArray* array = value.getArray();
+    if (!array || array->size() == 0)
+    {
+        return false;
+    }
+
+    std::vector<ColorRampPoint> color_ramp;
+    for (const auto& [idx, array_value] : value.enumerate())
+    {
+        if (array_value.getType() != UT_JSONValue::JSON_MAP)
+        {
+            return false;
+        }
+
+        const UT_JSONValue* position = array_value.get("position");
+        const UT_JSONValue* value_rgba = array_value.get("value");
+        const UT_JSONValue* basis = array_value.get("basis");
+
+        if (!position || position->getType() != UT_JSONValue::JSON_REAL ||
+            !value_rgba || value_rgba->getType() != UT_JSONValue::JSON_ARRAY ||
+            !basis || basis->getType() != UT_JSONValue::JSON_INT)
+        {
+            return false;
+        }
+
+        float rgba[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        const UT_JSONValueArray* rgba_array = value_rgba->getArray();
+        if (!rgba_array || rgba_array->size() != 4 ||
+            array_value.getUniformArrayType() != UT_JSONValue::JSON_REAL)
+        {
+            return false;
+        }
+
+        for (const auto& [idx, rgba_array_value] : value_rgba->enumerate())
+        {
+            rgba[idx] = (float)rgba_array_value.getF();
+        }
+
+        ColorRampPoint point{
+            (float)position->getF(),
+            { rgba[0], rgba[1], rgba[2], rgba[3] },
+            (UT_SPLINE_BASIS)basis->getI()
+        };
+        color_ramp.push_back(point);
+    }
+
+    param = Parameter(color_ramp);
+    return true;
+}
+
 static bool parse_map_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
 {
     if (parse_file_parameter(value, param, file_cache, writer))
+    {
+        return true;
+    }
+    if (parse_float_ramp_parameter(value, param, file_cache, writer))
+    {
+        return true;
+    }
+    if (parse_color_ramp_parameter(value, param, file_cache, writer))
     {
         return true;
     }
