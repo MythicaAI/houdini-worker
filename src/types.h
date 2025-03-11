@@ -5,6 +5,7 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <UT/UT_Spline.h>
 
 class FileCache;
 class StreamWriter;
@@ -23,6 +24,20 @@ struct FileParameter
     std::string file_path;
 };
 
+struct FloatRampPoint
+{
+    float position;
+    float value;
+    UT_SPLINE_BASIS basis;
+};
+
+struct ColorRampPoint
+{
+    float position;
+    float rgba[4];
+    UT_SPLINE_BASIS basis;
+};
+
 using Parameter = std::variant<
     int64_t,
     double,
@@ -30,7 +45,9 @@ using Parameter = std::variant<
     bool,
     FileParameter,
     std::vector<int64_t>,
-    std::vector<double>
+    std::vector<double>,
+    std::vector<FloatRampPoint>,
+    std::vector<ColorRampPoint>
 >;
 using ParameterSet = std::map<std::string, Parameter>;
 
