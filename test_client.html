@@ -327,7 +327,7 @@
       return mat;
     })(),
     rockface: (() => {
-      // https://nodematerial-editor.babylonjs.com/#L24LAB#2
+      // https://nodematerial-editor.babylonjs.com/#L24LAB#3
       var nodeMaterial = new BABYLON.NodeMaterial("node");
       nodeMaterial.mode = BABYLON.NodeMaterialModes.Material;
 
@@ -423,26 +423,6 @@
       uv.target = 1;
       uv.setAsAttribute("uv");
 
-      // TextureBlock
-      var Texture1 = new BABYLON.TextureBlock("Texture");
-      Texture1.visibleInInspector = false;
-      Texture1.visibleOnFrame = false;
-      Texture1.target = 3;
-      Texture1.convertToGammaSpace = false;
-      Texture1.convertToLinearSpace = false;
-      Texture1.disableLevelMultiplication = false;
-      Texture1.texture = new BABYLON.Texture("https://i.postimg.cc/KcwK7V5v/T-Rocky-Cliffs-02-a-N.png ", null, false, false, 3);
-      Texture1.texture.wrapU = 1;
-      Texture1.texture.wrapV = 1;
-      Texture1.texture.uAng = 0;
-      Texture1.texture.vAng = 0;
-      Texture1.texture.wAng = 0;
-      Texture1.texture.uOffset = 0;
-      Texture1.texture.vOffset = 0;
-      Texture1.texture.uScale = 1;
-      Texture1.texture.vScale = 1;
-      Texture1.texture.coordinatesMode = 7;
-
       // LerpBlock
       var Lerp1 = new BABYLON.LerpBlock("Lerp");
       Lerp1.visibleInInspector = false;
@@ -478,6 +458,12 @@
       Vector.value = new BABYLON.Vector3(0, 1, 0);
       Vector.isConstant = false;
 
+      // ColorSplitterBlock
+      var ColorSplitter = new BABYLON.ColorSplitterBlock("ColorSplitter");
+      ColorSplitter.visibleInInspector = false;
+      ColorSplitter.visibleOnFrame = false;
+      ColorSplitter.target = 4;
+
       // FragmentOutputBlock
       var FragmentOutput = new BABYLON.FragmentOutputBlock("FragmentOutput");
       FragmentOutput.visibleInInspector = false;
@@ -502,14 +488,14 @@
       normal.output.connectTo(Dot.left);
       Vector.output.connectTo(Dot.right);
       Dot.output.connectTo(Lerp1.gradient);
-      Lerp1.output.connectTo(FragmentOutput.rgba);
+      Lerp1.output.connectTo(ColorSplitter.rgba);
+      ColorSplitter.rgbOut.connectTo(FragmentOutput.rgb);
 
       // Output nodes
       nodeMaterial.addOutputNode(VertexOutput);
       nodeMaterial.addOutputNode(FragmentOutput);
       nodeMaterial.build();
 
-      nodeMaterial.forceDepthWrite = true;
 
       // Return the custom node material
       return nodeMaterial;
