@@ -105,7 +105,7 @@
     .download-btn {
       width: 100%;
       margin-bottom: 10px;
-      padding: 12px;
+      padding: 3px;
       background: #333;
       border: 1px solid #555;
       color: #e0e0e0;
@@ -240,6 +240,14 @@
       file_path: 'assets/Mythica.Rockify.1.0.hda',
       material_name: 'rockface',
       parameters: {
+        input0: {
+          type: 'file',
+          label: 'Input Mesh',
+          default: {
+            file_id: "file_xxx",
+            file_path: "assets/SM_Shape_04_a.usd"
+          }
+        },
         Stage: {
           type: 'slider',
           label: 'Stage',
@@ -284,14 +292,6 @@
           type: 'hidden',
           default: 256
         },
-        input0: {
-          type: 'hidden',
-          default: {
-            file_id: "file_xxx",
-            file_path: "assets/SM_Shape_04_a.usd"
-          }
-        },
-
       }
     }
   ];
@@ -595,6 +595,59 @@
           paramValues[key] = value;
           regenerateMesh();
         });
+      }
+
+      if (config.type === 'file') {
+        const filePickerContainer = document.createElement('div');
+        filePickerContainer.className = 'slider-container';
+        filePickerContainer.innerHTML = `
+          <div class="slider-row">
+            <span class="slider-label">${config.label || 'Input File'}:</span>
+            <button class="download-btn" style="margin: 0; flex: 1;" id="${key}Button">Select File</button>
+            <input type="file" id="${key}FilePicker" accept=".usd,.usda,.usdc" style="display: none;">
+          </div>
+        `;
+        container.appendChild(filePickerContainer);
+
+        const button = filePickerContainer.querySelector('.download-btn');
+        const filePicker = document.getElementById(`${key}FilePicker`);
+
+        button.addEventListener('click', () => filePicker.click());
+
+        filePicker.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          button.textContent = file.name;
+
+          const guid = crypto.randomUUID();
+          const fileExtension = file.name.split('.').pop();
+          const guidFileName = `${guid}.${fileExtension}`;
+
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64Content = reader.result.split(',')[1];
+
+            const uploadMessage = {
+              "op": "file_upload",
+              "data": {
+                "file_path": `assets/${guidFileName}`,
+                "content_base64": base64Content
+              }
+            };
+
+            ws.send(JSON.stringify(uploadMessage));
+
+            paramValues[key] = {
+              file_id: "file_xxx",
+              file_path: `assets/${guidFileName}`
+            };
+            regenerateMesh();
+          };
+
+          reader.readAsDataURL(file);
+        });
+        return;
       }
     });
   }
