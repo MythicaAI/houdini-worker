@@ -282,7 +282,7 @@
         },
         size: {
           type: 'hidden',
-          default: 512
+          default: 256
         },
         input0: {
           type: 'hidden',
@@ -327,12 +327,178 @@
       return mat;
     })(),
     rockface: (() => {
-      const mat = new BABYLON.PBRMaterial("rockface", scene);
-      mat.metallic = 0.0;
-      mat.roughness = 0.8;
-      mat.albedoTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/cliff_side/cliff_side_diff_1k.png", scene);
-      mat.bumpTexture = new BABYLON.Texture("https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/cliff_side/cliff_side_disp_1k.png", scene);
-      return mat;
+      // https://nodematerial-editor.babylonjs.com/#L24LAB#3
+      var nodeMaterial = new BABYLON.NodeMaterial("node");
+      nodeMaterial.mode = BABYLON.NodeMaterialModes.Material;
+
+      // InputBlock
+      var position = new BABYLON.InputBlock("position");
+      position.visibleInInspector = false;
+      position.visibleOnFrame = false;
+      position.target = 1;
+      position.setAsAttribute("position");
+
+      // TransformBlock
+      var WorldPos = new BABYLON.TransformBlock("WorldPos");
+      WorldPos.visibleInInspector = false;
+      WorldPos.visibleOnFrame = false;
+      WorldPos.target = 1;
+      WorldPos.complementZ = 0;
+      WorldPos.complementW = 1;
+
+      // InputBlock
+      var World = new BABYLON.InputBlock("World");
+      World.visibleInInspector = false;
+      World.visibleOnFrame = false;
+      World.target = 1;
+      World.setAsSystemValue(BABYLON.NodeMaterialSystemValues.World);
+
+      // TransformBlock
+      var WorldPosViewProjectionTransform = new BABYLON.TransformBlock("WorldPos * ViewProjectionTransform");
+      WorldPosViewProjectionTransform.visibleInInspector = false;
+      WorldPosViewProjectionTransform.visibleOnFrame = false;
+      WorldPosViewProjectionTransform.target = 1;
+      WorldPosViewProjectionTransform.complementZ = 0;
+      WorldPosViewProjectionTransform.complementW = 1;
+
+      // InputBlock
+      var ViewProjection = new BABYLON.InputBlock("ViewProjection");
+      ViewProjection.visibleInInspector = false;
+      ViewProjection.visibleOnFrame = false;
+      ViewProjection.target = 1;
+      ViewProjection.setAsSystemValue(BABYLON.NodeMaterialSystemValues.ViewProjection);
+
+      // VertexOutputBlock
+      var VertexOutput = new BABYLON.VertexOutputBlock("VertexOutput");
+      VertexOutput.visibleInInspector = false;
+      VertexOutput.visibleOnFrame = false;
+      VertexOutput.target = 1;
+
+      // InputBlock
+      var AO = new BABYLON.InputBlock("AO");
+      AO.visibleInInspector = false;
+      AO.visibleOnFrame = false;
+      AO.target = 1;
+      AO.value = new BABYLON.Color4(0.4588235294117647, 0, 0, 1);
+      AO.isConstant = false;
+
+      // LerpBlock
+      var Lerp = new BABYLON.LerpBlock("Lerp");
+      Lerp.visibleInInspector = false;
+      Lerp.visibleOnFrame = false;
+      Lerp.target = 4;
+
+      // InputBlock
+      var base = new BABYLON.InputBlock("base");
+      base.visibleInInspector = false;
+      base.visibleOnFrame = false;
+      base.target = 1;
+      base.value = new BABYLON.Color4(0.807843137254902, 0.5686274509803921, 0.396078431372549, 1);
+      base.isConstant = false;
+
+      // TextureBlock
+      var Texture = new BABYLON.TextureBlock("Texture");
+      Texture.visibleInInspector = false;
+      Texture.visibleOnFrame = false;
+      Texture.target = 3;
+      Texture.convertToGammaSpace = false;
+      Texture.convertToLinearSpace = false;
+      Texture.disableLevelMultiplication = false;
+      Texture.texture = new BABYLON.Texture("https://i.postimg.cc/1RNcwpZ6/T-Rocky-Cliffs-02-a-BRA.png", null, false, false, 3);
+      Texture.texture.wrapU = 1;
+      Texture.texture.wrapV = 1;
+      Texture.texture.uAng = 0;
+      Texture.texture.vAng = 0;
+      Texture.texture.wAng = 0;
+      Texture.texture.uOffset = 0;
+      Texture.texture.vOffset = 0;
+      Texture.texture.uScale = 1;
+      Texture.texture.vScale = 1;
+      Texture.texture.coordinatesMode = 7;
+
+      // InputBlock
+      var uv = new BABYLON.InputBlock("uv");
+      uv.visibleInInspector = false;
+      uv.visibleOnFrame = false;
+      uv.target = 1;
+      uv.setAsAttribute("uv");
+
+      // LerpBlock
+      var Lerp1 = new BABYLON.LerpBlock("Lerp");
+      Lerp1.visibleInInspector = false;
+      Lerp1.visibleOnFrame = false;
+      Lerp1.target = 4;
+
+      // InputBlock
+      var Top = new BABYLON.InputBlock("Top");
+      Top.visibleInInspector = false;
+      Top.visibleOnFrame = false;
+      Top.target = 1;
+      Top.value = new BABYLON.Color4(0.5529411764705883, 0.43529411764705883, 0.36470588235294116, 1);
+      Top.isConstant = false;
+
+      // DotBlock
+      var Dot = new BABYLON.DotBlock("Dot");
+      Dot.visibleInInspector = false;
+      Dot.visibleOnFrame = false;
+      Dot.target = 4;
+
+      // InputBlock
+      var normal = new BABYLON.InputBlock("normal");
+      normal.visibleInInspector = false;
+      normal.visibleOnFrame = false;
+      normal.target = 1;
+      normal.setAsAttribute("normal");
+
+      // InputBlock
+      var Vector = new BABYLON.InputBlock("Vector3");
+      Vector.visibleInInspector = false;
+      Vector.visibleOnFrame = false;
+      Vector.target = 1;
+      Vector.value = new BABYLON.Vector3(0, 1, 0);
+      Vector.isConstant = false;
+
+      // ColorSplitterBlock
+      var ColorSplitter = new BABYLON.ColorSplitterBlock("ColorSplitter");
+      ColorSplitter.visibleInInspector = false;
+      ColorSplitter.visibleOnFrame = false;
+      ColorSplitter.target = 4;
+
+      // FragmentOutputBlock
+      var FragmentOutput = new BABYLON.FragmentOutputBlock("FragmentOutput");
+      FragmentOutput.visibleInInspector = false;
+      FragmentOutput.visibleOnFrame = false;
+      FragmentOutput.target = 2;
+      FragmentOutput.convertToGammaSpace = false;
+      FragmentOutput.convertToLinearSpace = false;
+      FragmentOutput.useLogarithmicDepth = false;
+
+      // Connections
+      position.output.connectTo(WorldPos.vector);
+      World.output.connectTo(WorldPos.transform);
+      WorldPos.output.connectTo(WorldPosViewProjectionTransform.vector);
+      ViewProjection.output.connectTo(WorldPosViewProjectionTransform.transform);
+      WorldPosViewProjectionTransform.output.connectTo(VertexOutput.vector);
+      AO.output.connectTo(Lerp.left);
+      base.output.connectTo(Lerp.right);
+      uv.output.connectTo(Texture.uv);
+      Texture.b.connectTo(Lerp.gradient);
+      Lerp.output.connectTo(Lerp1.left);
+      Top.output.connectTo(Lerp1.right);
+      normal.output.connectTo(Dot.left);
+      Vector.output.connectTo(Dot.right);
+      Dot.output.connectTo(Lerp1.gradient);
+      Lerp1.output.connectTo(ColorSplitter.rgba);
+      ColorSplitter.rgbOut.connectTo(FragmentOutput.rgb);
+
+      // Output nodes
+      nodeMaterial.addOutputNode(VertexOutput);
+      nodeMaterial.addOutputNode(FragmentOutput);
+      nodeMaterial.build();
+
+
+      // Return the custom node material
+      return nodeMaterial;
     })()
   };
 
