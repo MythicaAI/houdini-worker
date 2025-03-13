@@ -1,6 +1,32 @@
+ARG LIBS_PYTHON_IMAGE=mythica-libs-python
 ARG HOUDINI_VERSION=20.5.370
 
-FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base
+# Image for monorepo library dependencies
+FROM ${LIBS_PYTHON_IMAGE} AS libs-python-image
+
+# Gather python dependencies - do the worker deps here too.
+# this version of python should match the target version in Houdini
+FROM python:3.11-slim AS python-dependency-downloader
+
+LABEL maintainer="jacob@mythica.ai"
+LABEL name="mythica-auto-houdini"
+LABEL description="Automation for mythica gen aiservices"
+LABEL version="1.0.0"
+LABEL tier="auto"
+
+# Copy monorepo dependencies
+COPY --from=libs-python-image /libs/python /libs/python
+
+WORKDIR /python-install
+
+COPY requirements.txt .
+
+# Install updated bootstrapping packages for poetry and pip 
+RUN python -m pip install \
+    -r requirements.txt 
+
+
+FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base as houdini-worker
 
 # Setup Houdini environment
 ENV SFX_CLIENT_ID=""
@@ -19,13 +45,12 @@ RUN mkdir -p /root/houdini20.5/packages/
 RUN cp /root/sideFXLabs/SideFXLabs.json /root/houdini20.5/packages/SideFXLabs.json
 RUN sed -i 's|"$HOUDINI_PACKAGE_PATH/SideFXLabs20.5"|"/root/sideFXLabs"|g' /root/houdini20.5/packages/SideFXLabs.json
 
-# Install build dependencies
+# Install build dependencies and Python runtime libraries
 RUN apt-get update && apt-get install -y \
     tcsh \
     g++ \
     cmake \
-    python3 \
-    python3-websocket \
+    python3.11 \
     mesa-common-dev \
     libglu1-mesa-dev \
     libxi-dev \
@@ -43,19 +68,42 @@ COPY src/ src/
 COPY third_party/ third_party/
 COPY CMakeLists.txt .
 
-# Create build directory and build
+# Create build directory and build Houdini-Worker
 RUN mkdir build && cd build && \
     cmake .. && \
     cmake --build .
 
-# Create directory to run the worker
+#Copy python dependencies
+COPY --from=python-dependency-downloader /libs/python /libs/python
+COPY --from=python-dependency-downloader /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+# Ensure that Python looks in the copied site-packages directory
+ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages:$PYTHONPATH
+
+
+
 RUN mkdir -p /run
+
 WORKDIR /run
 
-COPY run.sh .
+COPY houdini_sidecar.py .
 COPY assets/ assets/
+COPY requirements.txt .
 
-RUN chmod +x run.sh
+# Copy the worker binary to a location in PATH so the sidecar can launch it.
 RUN cp /worker/build/houdini_worker .
 
-ENTRYPOINT ["/bin/bash", "run.sh"]
+# Prepare the sidecar application.
+# Copy the sidecar script into /usr/local/bin and ensure it is executable.
+RUN chmod +x /run/houdini_sidecar.py
+
+
+# Expose the ports used by the worker and sidecar:
+# 8765: Public websocket for clients.
+# 9876: Privileged websocket (internal).
+# 8888: Websocket server for op:package commands in the sidecar.
+EXPOSE 8765 9876 8888
+
+# Set the container's entrypoint to run the sidecar,
+# which in turn will launch the Houdini-Worker.
+ENTRYPOINT ["python3.11", "/run/houdini_sidecar.py"]
