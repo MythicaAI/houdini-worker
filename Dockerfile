@@ -86,7 +86,7 @@ RUN mkdir -p /run
 
 WORKDIR /run
 
-COPY houdini_sidecar.py .
+COPY mythica_controller.py .
 COPY assets/ assets/
 COPY requirements.txt .
 
@@ -95,7 +95,7 @@ RUN cp /worker/build/houdini_worker .
 
 # Prepare the sidecar application.
 # Copy the sidecar script into /usr/local/bin and ensure it is executable.
-RUN chmod +x /run/houdini_sidecar.py
+RUN chmod +x /run/sidecar.py
 
 
 # Expose the ports used by the worker and sidecar:
@@ -106,4 +106,4 @@ EXPOSE 8765 9876 8888
 
 # Set the container's entrypoint to run the sidecar,
 # which in turn will launch the Houdini-Worker.
-ENTRYPOINT ["python3.11", "/run/houdini_sidecar.py"]
+ENTRYPOINT ["python3.11", "/run/mythica_controller.py"]
