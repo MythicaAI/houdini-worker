@@ -1,5 +1,6 @@
 #include "automation.h"
 #include "houdini_session.h"
+#include "interrupt.h"
 #include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
@@ -17,6 +18,7 @@
 #include <filesystem>
 #include <iostream>
 
+constexpr const int COOK_TIMEOUT_SECONDS = 60;
 constexpr const char* SOP_NODE_TYPE = "sop";
 
 namespace util
@@ -504,10 +506,8 @@ void cleanup_session(MOT_Director* director)
     }
 }
 
-bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
+bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
 {
-    rmt_ScopedCPUSample(Cook, 0);
-
     // Try to re-use an existing node
     OP_Node* node = nullptr;
     {
@@ -575,6 +575,36 @@ bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& wri
     }
 
     return true;
+}
+
+bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
+{
+    rmt_ScopedCPUSample(Cook, 0);
+
+    // Setup interrupt handler
+    InterruptHandler interruptHandler(writer);
+    UT_Interrupt* interrupt = UTgetInterrupt();
+    interrupt->setInterruptHandler(&interruptHandler);
+    interrupt->setEnabled(true);
+    interruptHandler.start_timeout(COOK_TIMEOUT_SECONDS);
+
+    // Execute automation
+    writer.state(AutomationState::Start);
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    bool result = cook_internal(session, request, writer);
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    writer.state(AutomationState::End);
+
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    util::log() << "Processed cook request in " << std::fixed << std::setprecision(2) << duration.count() / 1000.0 << "ms" << std::endl;
+
+    // Cleanup
+    interrupt->setEnabled(false);
+    interrupt->setInterruptHandler(nullptr);
+
+    return result;
 }
 
 }
