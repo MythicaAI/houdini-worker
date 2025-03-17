@@ -57,12 +57,10 @@ class HoudiniWorker:
 
     async def send_message(self,
                            data: Any,
-                           process_response: Callable[[Any], bool] = None) -> bool:
+                           process_response: Callable[[Any], bool]) -> bool:
         try:
             log.debug("Sending message: %s", data)
             await self.websocket.send_text(json.dumps(data))
-            if process_response is None:
-                return True
 
             while True:
                 try:
@@ -117,7 +115,9 @@ async def main():
             }
         }
         log.info("Uploading HDA file")
-        success = await worker.send_message(upload_message)
+        success = await worker.send_message(
+            upload_message,
+            process_response)
         assert success
         log.info("HDA file uploaded")
 
@@ -136,7 +136,9 @@ async def main():
             }
         }
         log.info("Uploading USDZ file")
-        success = await worker.send_message(upload_message)
+        success = await worker.send_message(
+            upload_message,
+            process_response)
         assert success
         log.info("USDZ file uploaded")
 

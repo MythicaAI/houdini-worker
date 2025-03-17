@@ -589,13 +589,9 @@ bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& wri
     interruptHandler.start_timeout(COOK_TIMEOUT_SECONDS);
 
     // Execute automation
-    writer.state(AutomationState::Start);
-
     auto start_time = std::chrono::high_resolution_clock::now();
     bool result = cook_internal(session, request, writer);
     auto end_time = std::chrono::high_resolution_clock::now();
-
-    writer.state(AutomationState::End);
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     util::log() << "Processed cook request in " << std::fixed << std::setprecision(2) << duration.count() / 1000.0 << "ms" << std::endl;

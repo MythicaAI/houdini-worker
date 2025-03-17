@@ -64,8 +64,11 @@ int theMain(int argc, char *argv[])
         if (websocket.try_pop_request(message, 1000))
         {
             rmt_ScopedCPUSample(ProcessRequest, 0);
+
             StreamWriter writer(websocket, message.connection_id);
+            writer.state(AutomationState::Start);
             process_message(session, file_cache, message.message, writer);
+            writer.state(AutomationState::End);
         }
     }
 
