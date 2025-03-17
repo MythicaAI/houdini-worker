@@ -1,5 +1,6 @@
 #include "automation.h"
 #include "houdini_session.h"
+#include "interrupt.h"
 #include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
@@ -17,6 +18,7 @@
 #include <filesystem>
 #include <iostream>
 
+constexpr const int COOK_TIMEOUT_SECONDS = 60;
 constexpr const char* SOP_NODE_TYPE = "sop";
 
 namespace util
@@ -48,20 +50,20 @@ static bool can_incremental_cook(const CookRequest& previous, const CookRequest&
     return std::equal(previous.parameters.begin(), previous.parameters.end(), current.parameters.begin(), same_key);
 }
 
-static std::string install_library(MOT_Director* director, const std::string& hda_file, int definition_index, StreamWriter& writer)
+static std::string install_library(MOT_Director* director, const std::string& hda_file_path, int definition_index, StreamWriter& writer)
 {
     // Load the library
     OP_OTLManager& manager = director->getOTLManager();
 
-    int library_index = manager.findLibrary(hda_file.c_str());
+    int library_index = manager.findLibrary(hda_file_path.c_str());
     if (library_index < 0)
     {
-        manager.installLibrary(hda_file.c_str());
+        manager.installLibrary(hda_file_path.c_str());
 
-        library_index = manager.findLibrary(hda_file.c_str());
+        library_index = manager.findLibrary(hda_file_path.c_str());
         if (library_index < 0)
         {
-            writer.error("Failed to install library: " + hda_file);
+            writer.error("Failed to install library: " + hda_file_path);
             return "";
         }
     }
@@ -234,19 +236,19 @@ static OP_Node* create_input_node(OP_Network* parent, const std::string& path, S
     return nullptr;
 }
 
-static void set_inputs(OP_Node* node, const std::map<int, std::string>& inputs, StreamWriter& writer)
+static void set_inputs(OP_Node* node, const std::map<int, FileParameter>& inputs, StreamWriter& writer)
 {
     OP_Network* parent = node->getParent();
 
-    for (const auto& [index, path] : inputs)
+    for (const auto& [index, file] : inputs)
     {
-        OP_Node* input_node = create_input_node(parent, path, writer);
+        OP_Node* input_node = create_input_node(parent, file.file_path, writer);
         if (!input_node)
         {
             input_node = parent->createNode("null");
             if (!input_node || !input_node->runCreateScript())
             {
-                writer.error("Failed to create null node for " + path);
+                writer.error("Failed to create null node for " + file.file_path);
                 continue;
             }
         }
@@ -504,10 +506,8 @@ void cleanup_session(MOT_Director* director)
     }
 }
 
-bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
+bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
 {
-    rmt_ScopedCPUSample(Cook, 0);
-
     // Try to re-use an existing node
     OP_Node* node = nullptr;
     {
@@ -527,7 +527,7 @@ bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& wri
             session.m_state = CookRequest();
 
             // Install the library
-            std::string node_type = install_library(session.m_director, request.hda_file, request.definition_index, writer);
+            std::string node_type = install_library(session.m_director, request.hda_file.file_path, request.definition_index, writer);
             if (node_type.empty())
             {
                 return false;
@@ -575,6 +575,32 @@ bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& wri
     }
 
     return true;
+}
+
+bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
+{
+    rmt_ScopedCPUSample(Cook, 0);
+
+    // Setup interrupt handler
+    InterruptHandler interruptHandler(writer);
+    UT_Interrupt* interrupt = UTgetInterrupt();
+    interrupt->setInterruptHandler(&interruptHandler);
+    interrupt->setEnabled(true);
+    interruptHandler.start_timeout(COOK_TIMEOUT_SECONDS);
+
+    // Execute automation
+    auto start_time = std::chrono::high_resolution_clock::now();
+    bool result = cook_internal(session, request, writer);
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    util::log() << "Processed cook request in " << std::fixed << std::setprecision(2) << duration.count() / 1000.0 << "ms" << std::endl;
+
+    // Cleanup
+    interrupt->setEnabled(false);
+    interrupt->setInterruptHandler(nullptr);
+
+    return result;
 }
 
 }
