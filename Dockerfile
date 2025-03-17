@@ -19,11 +19,11 @@ COPY --from=libs-python-image /libs/python /libs/python
 
 WORKDIR /python-install
 
-COPY requirements.txt .
+COPY controller/requirements.txt .
 
-# Install updated bootstrapping packages for poetry and pip 
+# Install updated bootstrapping packages for poetry and pip
 RUN python -m pip install \
-    -r requirements.txt 
+    -r requirements.txt
 
 
 FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base as houdini-worker
@@ -73,37 +73,32 @@ RUN mkdir build && cd build && \
     cmake .. && \
     cmake --build .
 
-#Copy python dependencies
+# Copy python dependencies
 COPY --from=python-dependency-downloader /libs/python /libs/python
 COPY --from=python-dependency-downloader /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Ensure that Python looks in the copied site-packages directory
 ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages:$PYTHONPATH
 
-
-
 RUN mkdir -p /run
 
 WORKDIR /run
 
-COPY mythica_controller.py .
+# Copy the controller and assets
+COPY controller/ controller/
 COPY assets/ assets/
-COPY requirements.txt .
+COPY run.sh .
+RUN chmod +x run.sh
 
-# Copy the worker binary to a location in PATH so the sidecar can launch it.
+# Copy the worker binary to a location in PATH so the controller can launch it.
 RUN cp /worker/build/houdini_worker .
 
-# Prepare the sidecar application.
-# Copy the sidecar script into /usr/local/bin and ensure it is executable.
-RUN chmod +x /run/sidecar.py
-
-
-# Expose the ports used by the worker and sidecar:
+# Expose the ports used by the worker and controller:
 # 8765: Public websocket for clients.
 # 9876: Privileged websocket (internal).
-# 8888: Websocket server for op:package commands in the sidecar.
+# 8888: Websocket server for op:package commands in the controller.
 EXPOSE 8765 9876 8888
 
-# Set the container's entrypoint to run the sidecar,
+# Set the container's entrypoint to run the controller,
 # which in turn will launch the Houdini-Worker.
-ENTRYPOINT ["python3.11", "/run/mythica_controller.py"]
+ENTRYPOINT ["/bin/bash", "run.sh"]

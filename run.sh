@@ -15,6 +15,7 @@ WORKER_PIDS=()
 # Start multiple workers
 for ((i=0; i<$NUM_WORKERS; i++)); do
     PORT=$((BASE_PORT + i))
+    # python3.11 /run/controller/main.py --worker /run/houdini_worker &
     /run/houdini_worker $PORT &
     WORKER_PIDS+=($!)
     echo "Started worker on port $PORT with PID ${WORKER_PIDS[-1]}"
