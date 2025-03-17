@@ -1,5 +1,5 @@
 #include "automation.h"
-#include "houdini_session.h"
+#include "session.h"
 #include "interrupt.h"
 #include "Remotery.h"
 #include "stream_writer.h"

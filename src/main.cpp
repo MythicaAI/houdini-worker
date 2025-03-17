@@ -1,12 +1,13 @@
 #include "automation.h"
 #include "file_cache.h"
-#include "houdini_session.h"
+#include "session.h"
 #include "Remotery.h"
 #include "stream_writer.h"
 #include "types.h"
 #include "util.h"
 #include "websocket.h"
 
+#include <map>
 #include <UT/UT_Main.h>
 
 static void process_message(HoudiniSession& session, FileCache& file_cache, const std::string& message, StreamWriter& writer)
@@ -39,23 +40,25 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
 
 int theMain(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        util::log() << "Usage: " << argv[0] << " <port>\n";
+        util::log() << "Usage: " << argv[0] << " <client_port> <admin_port>\n";
         return 1;
     }
 
-    const int port = std::stoi(argv[1]);
+    const int client_port = std::stoi(argv[1]);
+    const int admin_port = std::stoi(argv[2]);
 
     Remotery* rmt;
     rmt_CreateGlobalInstance(&rmt);
 
     // Initialize Houdini
     FileCache file_cache;
-    HoudiniSession session;
+    HoudiniSession houdini_session;
+    std::map<int, ClientSession> client_sessions;
 
     // Initialize websocket server
-    WebSocket websocket("0.0.0.0", port);
+    WebSocket websocket(client_port, admin_port);
 
     util::log() << "Ready to receive requests" << std::endl;
     while (true)
@@ -65,10 +68,28 @@ int theMain(int argc, char *argv[])
         {
             rmt_ScopedCPUSample(ProcessRequest, 0);
 
-            StreamWriter writer(websocket, message.connection_id);
-            writer.state(AutomationState::Start);
-            process_message(session, file_cache, message.message, writer);
-            writer.state(AutomationState::End);
+            if (message.type == StreamMessageType::ConnectionOpenClient)
+            {
+                assert(client_sessions.find(message.connection_id) == client_sessions.end());
+                client_sessions[message.connection_id] = ClientSession(false);
+            }
+            else if (message.type == StreamMessageType::ConnectionOpenAdmin)
+            {
+                assert(client_sessions.find(message.connection_id) == client_sessions.end());
+                client_sessions[message.connection_id] = ClientSession(true);
+            }
+            else if (message.type == StreamMessageType::Message)
+            {
+                StreamWriter writer(websocket, message.connection_id);
+                writer.state(AutomationState::Start);
+                process_message(houdini_session, file_cache, message.message, writer);
+                writer.state(AutomationState::End);
+            }
+            else if (message.type == StreamMessageType::ConnectionClose)
+            {
+                assert(client_sessions.find(message.connection_id) != client_sessions.end());
+                client_sessions.erase(message.connection_id);
+            }
         }
     }
 

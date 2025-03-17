@@ -12,3 +12,10 @@ struct HoudiniSession
     MOT_Director* m_director;
     CookRequest m_state;
 };
+
+struct ClientSession
+{
+    ClientSession(bool admin = false);
+
+    bool m_admin;
+};

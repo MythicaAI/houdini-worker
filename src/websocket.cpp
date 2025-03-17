@@ -7,8 +7,8 @@
 
 struct WebSocketThreadConfig
 {
-    std::string m_url;
-    int m_port;
+    int m_client_port;
+    int m_admin_port;
     mg_mgr& m_mgr;
     MessageQueue& m_queue;
 };
@@ -19,19 +19,26 @@ struct WebSocketThreadState
     MessageQueue& m_queue;
 };
 
+template<bool is_admin>
 static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 {
     WebSocketThreadState* state = (WebSocketThreadState*)c->fn_data;
 
-    if (ev == MG_EV_OPEN)
-    {
-        util::log() << "Connection opened " << c->id << std::endl;
-        state->connection_map[c->id] = c;
-    }
-    else if (ev == MG_EV_HTTP_MSG)
+    if (ev == MG_EV_HTTP_MSG)
     {
         struct mg_http_message* hm = (struct mg_http_message*)ev_data;
         mg_ws_upgrade(c, hm, NULL);
+    }
+    else if (ev == MG_EV_WS_OPEN)
+    {
+        util::log() << "Connection opened " << c->id << " " << (is_admin ? "(admin)" : "(client)") << std::endl;
+        state->connection_map[c->id] = c;
+
+        StreamMessage msg;
+        msg.connection_id = c->id;
+        msg.type = is_admin ? StreamMessageType::ConnectionOpenAdmin : StreamMessageType::ConnectionOpenClient;
+
+        state->m_queue.push_request(msg);
     }
     else if (ev == MG_EV_WS_MSG)
     {
@@ -42,6 +49,7 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 
         StreamMessage msg;
         msg.connection_id = c->id;
+        msg.type = StreamMessageType::Message;
         msg.message = message;
 
         state->m_queue.push_request(msg);
@@ -50,6 +58,12 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
     {
         util::log() << "Connection closed " << c->id << std::endl;
         state->connection_map.erase(c->id);
+
+        StreamMessage msg;
+        msg.connection_id = c->id;
+        msg.type = StreamMessageType::ConnectionClose;
+
+        state->m_queue.push_request(msg);
     }
 }
 
@@ -57,8 +71,10 @@ static void websocket_thread(const WebSocketThreadConfig& config)
 {
     WebSocketThreadState state{{}, config.m_queue};
 
-    std::string listen_addr = std::string("ws://") + config.m_url + ":" + std::to_string(config.m_port);
-    mg_http_listen(&config.m_mgr, listen_addr.c_str(), fn_ws, &state);
+    std::string client_listen_addr = std::string("ws://") + "0.0.0.0:" + std::to_string(config.m_client_port);
+    std::string admin_listen_addr = std::string("ws://") + "0.0.0.0:" + std::to_string(config.m_admin_port);
+    mg_http_listen(&config.m_mgr, client_listen_addr.c_str(), fn_ws<false>, &state);
+    mg_http_listen(&config.m_mgr, admin_listen_addr.c_str(), fn_ws<true>, &state);
 
     while (true)
     {
@@ -123,12 +139,12 @@ bool MessageQueue::try_pop_response(StreamMessage& message)
     return true;
 }
 
-WebSocket::WebSocket(const std::string& url, int port)
+WebSocket::WebSocket(int client_port, int admin_port)
 {
     mg_mgr_init(&m_mgr);
     mg_wakeup_init(&m_mgr);
 
-    WebSocketThreadConfig config = { url, port, m_mgr, m_queue };
+    WebSocketThreadConfig config = { client_port, admin_port, m_mgr, m_queue };
     m_thread = std::thread([config]{ websocket_thread(config); });
 }
 
@@ -144,8 +160,13 @@ bool WebSocket::try_pop_request(StreamMessage& message, int timeout_ms)
     return m_queue.try_pop_request(message, timeout_ms);
 }
 
-void WebSocket::push_response(const StreamMessage& message)
+void WebSocket::push_response(int connection_id, const std::string& message)
 {
-    m_queue.push_response(message);
-    mg_wakeup(&m_mgr, message.connection_id, "wake", 4);
+    StreamMessage msg;
+    msg.connection_id = connection_id;
+    msg.type = StreamMessageType::Message;
+    msg.message = message;
+
+    m_queue.push_response(msg);
+    mg_wakeup(&m_mgr, connection_id, "wake", 4);
 }
