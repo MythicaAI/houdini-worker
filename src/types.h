@@ -22,6 +22,15 @@ struct FileParameter
 {
     std::string file_id;
     std::string file_path;
+
+    bool operator==(const FileParameter& other) const
+    {
+        return file_id == other.file_id && file_path == other.file_path;
+    }
+    bool operator!=(const FileParameter& other) const
+    {
+        return !(*this == other);
+    }
 };
 
 struct RampPoint
@@ -52,9 +61,9 @@ enum class EOutputFormat
 
 struct CookRequest
 {
-    std::string hda_file;
+    FileParameter hda_file;
     int64_t definition_index;
-    std::map<int, std::string> inputs;
+    std::map<int, FileParameter> inputs;
     ParameterSet parameters;
     EOutputFormat format;
 };
@@ -69,5 +78,6 @@ using WorkerRequest = std::variant<CookRequest, FileUploadRequest>;
 
 namespace util
 {
-    bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache, StreamWriter& writer);
+    bool parse_request(const std::string& message, WorkerRequest& request, StreamWriter& writer);
+    bool resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer);
 }

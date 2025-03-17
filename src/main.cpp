@@ -12,7 +12,7 @@
 static void process_message(HoudiniSession& session, FileCache& file_cache, const std::string& message, StreamWriter& writer)
 {
     WorkerRequest request;
-    if (!util::parse_request(message, request, file_cache, writer))
+    if (!util::parse_request(message, request, writer))
     {
         writer.error("Failed to parse request");
         return;
@@ -20,12 +20,19 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
 
     if (std::holds_alternative<CookRequest>(request))
     {
-        CookRequest cook_req = std::get<CookRequest>(request);
+        CookRequest& cook_req = std::get<CookRequest>(request);
+
+        if (!util::resolve_files(cook_req, file_cache, writer))
+        {
+            writer.error("Failed to resolve files");
+            return;
+        }
+
         util::cook(session, cook_req, writer);
     }
     else if (std::holds_alternative<FileUploadRequest>(request))
     {
-        FileUploadRequest file_upload_req = std::get<FileUploadRequest>(request);
+        FileUploadRequest& file_upload_req = std::get<FileUploadRequest>(request);
         file_cache.add_file(file_upload_req.file_path, file_upload_req.content_base64);
     }
 }

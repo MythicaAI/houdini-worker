@@ -29,7 +29,7 @@ static EOutputFormat parse_output_format(const std::string& format_str)
     }
 }
 
-static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, StreamWriter& writer)
 {
     const UT_JSONValue* file_path = value.get("file_path");
     if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
@@ -38,22 +38,7 @@ static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, Fi
         return false;
     }
 
-    std::string file_path_str = file_path->getS();
-    std::string resolved_path = file_cache.get_file_by_path(file_path_str);
-    if (resolved_path.empty())
-    {
-        // Fall back to using files baked into the image
-        if (std::filesystem::exists(file_path_str))
-        {
-            resolved_path = file_path_str;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    param = FileParameter{"", resolved_path};
+    param = FileParameter{"", file_path->getS()};
     return true;
 }
 
@@ -98,7 +83,7 @@ static bool parse_basis_parameter(const UT_StringHolder& string, UT_SPLINE_BASIS
     return false;
 }
 
-static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, FileCache& file_cache, StreamWriter& writer)
+static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, StreamWriter& writer)
 {
     const UT_JSONValueArray* array = value.getArray();
     if (!array || array->size() == 0)
@@ -189,7 +174,7 @@ static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, Fi
     return true;
 }
 
-static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, FileCache& file_cache, StreamWriter& writer)
+static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, StreamWriter& writer)
 {
     if (!data || data->getType() != UT_JSONValue::JSON_MAP)
     {
@@ -218,7 +203,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
             case UT_JSONValue::JSON_MAP:
             {
                 Parameter param;
-                if (!parse_file_parameter(value, param, file_cache, writer))
+                if (!parse_file_parameter(value, param, writer))
                 {
                     writer.error("Failed to parse file parameter: " + key.toStdString());
                     return false;
@@ -271,7 +256,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
                     case UT_JSONValue::JSON_MAP:
                     {
                         Parameter param;
-                        if (!parse_ramp_parameter(value, param, file_cache, writer))
+                        if (!parse_ramp_parameter(value, param, writer))
                         {
                             writer.error("Failed to parse ramp parameter: " + key.toStdString());
                             return false;
@@ -317,7 +302,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
         return false;
     }
 
-    request.hda_file = std::get<FileParameter>(hda_path_iter->second).file_path;
+    request.hda_file = std::get<FileParameter>(hda_path_iter->second);
     request.definition_index = std::get<int64_t>(definition_index_iter->second);
     paramSet.erase("hda_path");
     paramSet.erase("definition_index");
@@ -344,7 +329,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, F
         }
 
         int input_index = std::stoi(match[1]);
-        request.inputs[input_index] = std::get<FileParameter>(iter->second).file_path;
+        request.inputs[input_index] = std::get<FileParameter>(iter->second);
         iter = paramSet.erase(iter);
     }
 
@@ -381,7 +366,7 @@ static bool parse_file_upload_request(const UT_JSONValue* data, FileUploadReques
     return true;
 }
 
-bool parse_request(const std::string& message, WorkerRequest& request, FileCache& file_cache, StreamWriter& writer)
+bool parse_request(const std::string& message, WorkerRequest& request, StreamWriter& writer)
 {
     rmt_ScopedCPUSample(ParseRequest, 0);
 
@@ -410,7 +395,7 @@ bool parse_request(const std::string& message, WorkerRequest& request, FileCache
     if (op->getString().toStdString() == "cook")
     {
         request = CookRequest();
-        return parse_cook_request(data, std::get<CookRequest>(request), file_cache, writer);
+        return parse_cook_request(data, std::get<CookRequest>(request), writer);
     }
     else if (op->getString().toStdString() == "file_upload")
     {
@@ -422,6 +407,56 @@ bool parse_request(const std::string& message, WorkerRequest& request, FileCache
         util::log() << "Invalid operation: " << op->getString().toStdString() << std::endl;
         return false;
     }
+}
+
+bool resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writer)
+{
+    std::string resolved_path = file_cache.get_file_by_path(file.file_path);
+    if (resolved_path.empty())
+    {
+        // Fall back to using files baked into the image
+        if (std::filesystem::exists(file.file_path))
+        {
+            resolved_path = file.file_path;
+        }
+        else
+        {
+            writer.error("File not found: " + file.file_path);
+            return false;
+        }
+    }
+
+    file.file_path = resolved_path;
+    return true;
+}
+
+bool resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer)
+{
+    if (!resolve_file(request.hda_file, file_cache, writer))
+    {
+        return false;
+    }
+
+    for (auto& [idx, file] : request.inputs)
+    {
+        if (!resolve_file(file, file_cache, writer))
+        {
+            return false;
+        }
+    }
+
+    for (auto& [key, param] : request.parameters)
+    {
+        if (std::holds_alternative<FileParameter>(param))
+        {
+            if (!resolve_file(std::get<FileParameter>(param), file_cache, writer))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 }
