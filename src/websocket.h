@@ -34,7 +34,7 @@ private:
 class WebSocket
 {
 public:
-    WebSocket(const std::string& url, int port);
+    WebSocket(int client_port, int admin_port);
     ~WebSocket();
 
     bool try_pop_request(StreamMessage& message, int timeout_ms);

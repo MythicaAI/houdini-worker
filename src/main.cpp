@@ -39,13 +39,14 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
 
 int theMain(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        util::log() << "Usage: " << argv[0] << " <port>\n";
+        util::log() << "Usage: " << argv[0] << " <client_port> <admin_port>\n";
         return 1;
     }
 
-    const int port = std::stoi(argv[1]);
+    const int client_port = std::stoi(argv[1]);
+    const int admin_port = std::stoi(argv[2]);
 
     Remotery* rmt;
     rmt_CreateGlobalInstance(&rmt);
@@ -55,7 +56,7 @@ int theMain(int argc, char *argv[])
     HoudiniSession session;
 
     // Initialize websocket server
-    WebSocket websocket("0.0.0.0", port);
+    WebSocket websocket(client_port, admin_port);
 
     util::log() << "Ready to receive requests" << std::endl;
     while (true)
