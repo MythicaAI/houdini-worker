@@ -26,7 +26,7 @@ RUN python -m pip install \
     -r requirements.txt
 
 
-FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base as houdini-worker
+FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base AS houdini-worker
 
 # Setup Houdini environment
 ENV SFX_CLIENT_ID=""
