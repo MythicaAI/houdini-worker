@@ -93,5 +93,5 @@ void StreamWriter::geometry(const Geometry& geometry)
 void StreamWriter::writeToStream(const std::string& op, const std::string& data)
 {
     std::string json = "{\"op\":\"" + op + "\",\"data\":" + data + "}\n";
-    m_websocket.push_response(StreamMessage{m_connection_id, json});
+    m_websocket.push_response(m_connection_id, json);
 }
