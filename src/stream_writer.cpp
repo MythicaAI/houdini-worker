@@ -4,6 +4,7 @@
 #include "util.h"
 #include "websocket.h"
 #include <UT/UT_Base64.h>
+#include <UT/UT_JSONValue.h>
 #include <UT/UT_WorkBuffer.h>
 
 #include <iostream>
@@ -15,12 +16,16 @@ void StreamWriter::state(AutomationState state)
 
 void StreamWriter::status(const std::string& message)
 {
-    writeToStream("status", "\"" + message + "\"");
+    UT_JSONValue json;
+    json.setString(message);
+    writeToStream("status", json.toString().c_str());
 }
 
 void StreamWriter::error(const std::string& message)
 {
-    writeToStream("error", "\"" + message + "\"");
+    UT_JSONValue json;
+    json.setString(message);
+    writeToStream("error", json.toString().c_str());
 }
 
 void StreamWriter::file(const std::string& file_name, const std::vector<char>& file_data)
