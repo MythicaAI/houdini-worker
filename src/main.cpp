@@ -64,12 +64,12 @@ int theMain(int argc, char *argv[])
 {
     if (argc != 3)
     {
-        util::log() << "Usage: " << argv[0] << " <client_port> <admin_port>\n";
+        util::log() << "Usage: " << argv[0] << " <client_endpoint> <admin_endpoint>\n";
         return 1;
     }
 
-    const int client_port = std::stoi(argv[1]);
-    const int admin_port = std::stoi(argv[2]);
+    const std::string client_endpoint = argv[1];
+    const std::string admin_endpoint = argv[2];
 
     Remotery* rmt;
     rmt_CreateGlobalInstance(&rmt);
@@ -81,7 +81,7 @@ int theMain(int argc, char *argv[])
     std::map<int, AdminSession> admin_sessions;
 
     // Initialize websocket server
-    WebSocket websocket(client_port, admin_port);
+    WebSocket websocket(client_endpoint, admin_endpoint);
 
     util::log() << "Ready to receive requests" << std::endl;
     while (true)

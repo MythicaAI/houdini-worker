@@ -7,8 +7,8 @@
 
 struct WebSocketThreadConfig
 {
-    int m_client_port;
-    int m_admin_port;
+    std::string m_client_endpoint;
+    std::string m_admin_endpoint;
     mg_mgr& m_mgr;
     MessageQueue& m_queue;
 };
@@ -71,10 +71,8 @@ static void websocket_thread(const WebSocketThreadConfig& config)
 {
     WebSocketThreadState state{{}, config.m_queue};
 
-    std::string client_listen_addr = std::string("ws://") + "0.0.0.0:" + std::to_string(config.m_client_port);
-    std::string admin_listen_addr = std::string("ws://") + "0.0.0.0:" + std::to_string(config.m_admin_port);
-    mg_http_listen(&config.m_mgr, client_listen_addr.c_str(), fn_ws<false>, &state);
-    mg_http_listen(&config.m_mgr, admin_listen_addr.c_str(), fn_ws<true>, &state);
+    mg_http_listen(&config.m_mgr, config.m_client_endpoint.c_str(), fn_ws<false>, &state);
+    mg_http_listen(&config.m_mgr, config.m_admin_endpoint.c_str(), fn_ws<true>, &state);
 
     while (true)
     {
@@ -139,12 +137,12 @@ bool MessageQueue::try_pop_response(StreamMessage& message)
     return true;
 }
 
-WebSocket::WebSocket(int client_port, int admin_port)
+WebSocket::WebSocket(const std::string& client_endpoint, const std::string& admin_endpoint)
 {
     mg_mgr_init(&m_mgr);
     mg_wakeup_init(&m_mgr);
 
-    WebSocketThreadConfig config = { client_port, admin_port, m_mgr, m_queue };
+    WebSocketThreadConfig config = { client_endpoint, admin_endpoint, m_mgr, m_queue };
     m_thread = std::thread([config]{ websocket_thread(config); });
 }
 
