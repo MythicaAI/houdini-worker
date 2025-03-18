@@ -101,6 +101,7 @@ async def main():
             return completed
 
         # Upload HDA file
+        hda_file_id = "file_test_hda"
         hda_path = "assets/test_cube.hda"
         base64_content = None
         with open(hda_path, "rb") as f:
@@ -110,7 +111,8 @@ async def main():
         upload_message = {
             "op": "file_upload",
             "data": {
-                "file_path": hda_path,
+                "file_id": hda_file_id,
+                "content_type": "application/hda",
                 "content_base64": base64_content
             }
         }
@@ -122,6 +124,7 @@ async def main():
         log.info("HDA file uploaded")
 
         # Upload USDZ file
+        input_file_id = "file_test_input0"
         input_path = "assets/cube.usdz"
         base64_content = None
         with open(input_path, "rb") as f:
@@ -131,7 +134,8 @@ async def main():
         upload_message = {
             "op": "file_upload",
             "data": {
-                "file_path": input_path,
+                "file_id": input_file_id,
+                "content_type": "application/usdz",
                 "content_base64": base64_content
             }
         }
@@ -147,14 +151,12 @@ async def main():
             "op": "cook",
             "data": {
                 "hda_path": {
-                    "file_id": "file_xxx",
-                    "file_path": hda_path
+                    "file_id": hda_file_id,
                 },
                 "definition_index": 0,
                 "format": "raw",
                 "input0": {
-                    "file_id": "file_xxx",
-                    "file_path": input_path
+                    "file_id": input_file_id,
                 },
                 "test_int": 5,
                 "test_float": 2.0,

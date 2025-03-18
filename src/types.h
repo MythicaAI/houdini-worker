@@ -68,9 +68,16 @@ struct CookRequest
     EOutputFormat format;
 };
 
+struct FileResolveRequest
+{
+    std::string file_id;
+};
+
 struct FileUploadRequest
 {
+    std::string file_id;
     std::string file_path;
+    std::string content_type;
     std::string content_base64;
 };
 
@@ -79,5 +86,5 @@ using WorkerRequest = std::variant<CookRequest, FileUploadRequest>;
 namespace util
 {
     bool parse_request(const std::string& message, WorkerRequest& request, StreamWriter& writer);
-    bool resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer);
+    void resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files);
 }

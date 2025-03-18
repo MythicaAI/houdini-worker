@@ -23,7 +23,9 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
     {
         CookRequest& cook_req = std::get<CookRequest>(request);
 
-        if (!util::resolve_files(cook_req, file_cache, writer))
+        std::vector<std::string> unresolved_files;
+        util::resolve_files(cook_req, file_cache, writer, unresolved_files);
+        if (!unresolved_files.empty())
         {
             writer.error("Failed to resolve files");
             return;
@@ -34,7 +36,14 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
     else if (std::holds_alternative<FileUploadRequest>(request))
     {
         FileUploadRequest& file_upload_req = std::get<FileUploadRequest>(request);
-        file_cache.add_file(file_upload_req.file_path, file_upload_req.content_base64);
+        if (!file_upload_req.file_path.empty())
+        {
+            file_cache.add_file(file_upload_req.file_id, file_upload_req.file_path);
+        }
+        else
+        {
+            file_cache.add_file(file_upload_req.file_id, file_upload_req.content_type, file_upload_req.content_base64);
+        }
     }
 }
 
