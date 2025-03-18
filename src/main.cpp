@@ -26,7 +26,7 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
         std::vector<std::string> unresolved_files;
         util::resolve_files(cook_req, file_cache, writer, unresolved_files);
 
-        for (const auto& file_id : unresolved_files)
+        for (const std::string& file_id : unresolved_files)
         {
             writer.file_resolve(file_id);
         }
