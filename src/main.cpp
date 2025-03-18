@@ -36,13 +36,20 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
     else if (std::holds_alternative<FileUploadRequest>(request))
     {
         FileUploadRequest& file_upload_req = std::get<FileUploadRequest>(request);
+
+        bool result = false;
         if (!file_upload_req.file_path.empty())
         {
-            file_cache.add_file(file_upload_req.file_id, file_upload_req.file_path);
+            result = file_cache.add_file(file_upload_req.file_id, file_upload_req.file_path, writer);
         }
         else
         {
-            file_cache.add_file(file_upload_req.file_id, file_upload_req.content_type, file_upload_req.content_base64);
+            result = file_cache.add_file(file_upload_req.file_id, file_upload_req.content_type, file_upload_req.content_base64, writer);
+        }
+
+        if (!result)
+        {
+            writer.error("Failed to upload file: " + file_upload_req.file_id);
         }
     }
 }
