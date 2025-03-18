@@ -409,7 +409,7 @@ bool parse_request(const std::string& message, WorkerRequest& request, StreamWri
     }
 }
 
-bool resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writer)
+void resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files)
 {
     std::string resolved_path = file_cache.get_file_by_path(file.file_path);
     if (resolved_path.empty())
@@ -421,42 +421,31 @@ bool resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writ
         }
         else
         {
+            unresolved_files.push_back(file.file_path);
             writer.error("File not found: " + file.file_path);
-            return false;
+            return;
         }
     }
 
     file.file_path = resolved_path;
-    return true;
 }
 
-bool resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer)
+void resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files)
 {
-    if (!resolve_file(request.hda_file, file_cache, writer))
-    {
-        return false;
-    }
+    resolve_file(request.hda_file, file_cache, writer, unresolved_files);
 
     for (auto& [idx, file] : request.inputs)
     {
-        if (!resolve_file(file, file_cache, writer))
-        {
-            return false;
-        }
+        resolve_file(file, file_cache, writer, unresolved_files);
     }
 
     for (auto& [key, param] : request.parameters)
     {
         if (std::holds_alternative<FileParameter>(param))
         {
-            if (!resolve_file(std::get<FileParameter>(param), file_cache, writer))
-            {
-                return false;
-            }
+            resolve_file(std::get<FileParameter>(param), file_cache, writer, unresolved_files);
         }
     }
-
-    return true;
 }
 
 }

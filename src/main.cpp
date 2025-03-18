@@ -23,7 +23,9 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
     {
         CookRequest& cook_req = std::get<CookRequest>(request);
 
-        if (!util::resolve_files(cook_req, file_cache, writer))
+        std::vector<std::string> unresolved_files;
+        util::resolve_files(cook_req, file_cache, writer, unresolved_files);
+        if (!unresolved_files.empty())
         {
             writer.error("Failed to resolve files");
             return;
