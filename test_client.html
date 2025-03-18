@@ -631,7 +631,8 @@
             const uploadMessage = {
               "op": "file_upload",
               "data": {
-                "file_path": `assets/${guidFileName}`,
+                "file_id": "file_input0",
+                "content_type": "application/usdz",
                 "content_base64": base64Content
               }
             };
@@ -639,8 +640,7 @@
             ws.send(JSON.stringify(uploadMessage));
 
             paramValues[key] = {
-              file_id: "file_xxx",
-              file_path: `assets/${guidFileName}`
+              file_id: "file_input0",
             };
             regenerateMesh();
           };

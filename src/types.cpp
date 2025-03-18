@@ -31,14 +31,17 @@ static EOutputFormat parse_output_format(const std::string& format_str)
 
 static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, StreamWriter& writer)
 {
-    const UT_JSONValue* file_path = value.get("file_path");
-    if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
+    const UT_JSONValue* file_id = value.get("file_id");
+    if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING)
     {
-        writer.error("File parameter is missing file_path");
+        writer.error("File parameter is missing file_id");
         return false;
     }
 
-    param = FileParameter{"", file_path->getS()};
+    const UT_JSONValue* file_path = value.get("file_path");
+    bool has_file_path = file_path && file_path->getType() == UT_JSONValue::JSON_STRING;
+
+    param = FileParameter{file_id->getS(), has_file_path ? file_path->getS() : ""};
     return true;
 }
 
@@ -346,22 +349,30 @@ static bool parse_file_upload_request(const UT_JSONValue* data, FileUploadReques
         return false;
     }
 
+    const UT_JSONValue* file_id = data->get("file_id");
+    if (!file_id || file_id->getType() != UT_JSONValue::JSON_STRING)
+    {
+        writer.error("Request missing required field: file_id");
+        return false;
+    }
+
     const UT_JSONValue* file_path = data->get("file_path");
-    if (!file_path || file_path->getType() != UT_JSONValue::JSON_STRING)
-    {
-        writer.error("Request missing required field: file_path");
-        return false;
-    }
-
+    const UT_JSONValue* content_type = data->get("content_type");
     const UT_JSONValue* content_base64 = data->get("content_base64");
-    if (!content_base64 || content_base64->getType() != UT_JSONValue::JSON_STRING)
+
+    bool has_file_path = file_path && file_path->getType() == UT_JSONValue::JSON_STRING;
+    bool has_content = content_type && content_type->getType() == UT_JSONValue::JSON_STRING &&
+                       content_base64 && content_base64->getType() == UT_JSONValue::JSON_STRING;
+    if (!has_file_path && !has_content)
     {
-        writer.error("Request missing required field: content_base64");
+        writer.error("Request missing required field: file_path or content_type+content_base64");
         return false;
     }
 
-    request.file_path = file_path->getS();
-    request.content_base64 = content_base64->getS();
+    request.file_id = file_id->getS();
+    request.file_path = has_file_path ? file_path->getS() : "";
+    request.content_type = has_content ? content_type->getS() : "";
+    request.content_base64 = has_content ? content_base64->getS() : "";
 
     return true;
 }
@@ -411,7 +422,7 @@ bool parse_request(const std::string& message, WorkerRequest& request, StreamWri
 
 void resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files)
 {
-    std::string resolved_path = file_cache.get_file_by_path(file.file_path);
+    std::string resolved_path = file_cache.get_file_by_id(file.file_id);
     if (resolved_path.empty())
     {
         // Fall back to using files baked into the image
@@ -421,8 +432,8 @@ void resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writ
         }
         else
         {
-            unresolved_files.push_back(file.file_path);
-            writer.error("File not found: " + file.file_path);
+            unresolved_files.push_back(file.file_id);
+            writer.error("File not found: " + file.file_id);
             return;
         }
     }
