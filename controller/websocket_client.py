@@ -19,7 +19,7 @@ async def websocket_client(admin_ws_endpoint, resolve_queue, response_queue):
             try:
                 response = await response_queue.get()
                 await websocket.send_text(json.dumps(response.model_dump()))
-                log.info("Sent resolve completion: %s", response)
+                log.info("Sent response: %s", response)
             except Exception as e:
                 log.error(f"Error sending response: {e}")
 
@@ -51,9 +51,7 @@ async def websocket_client(admin_ws_endpoint, resolve_queue, response_queue):
             log.info("Connected to Houdini worker at %s", admin_ws_endpoint)
             await hello(websocket)
 
-            # Create tasks for send and receive loops
             send_task = asyncio.create_task(send_responses(websocket))
             receive_task = asyncio.create_task(receive_messages(websocket))
 
-            # Wait for either task to complete (or fail)
             await asyncio.gather(send_task, receive_task)
