@@ -1,4 +1,5 @@
 #include "file_cache.h"
+#include "stream_writer.h"
 #include "util.h"
 
 #include <filesystem>
@@ -28,11 +29,11 @@ std::string parse_mime_type_extension(const std::string& mime_type)
     return std::regex_search(mime_type, match, mimeRegex) ? match[1].str() : "";
 }
 
-bool FileCache::add_file(const std::string& file_id, const std::string& file_path)
+bool FileCache::add_file(const std::string& file_id, const std::string& file_path, StreamWriter& writer)
 {
     if (!std::filesystem::exists(file_path))
     {
-        util::log() << "File does not exist: " << file_path << std::endl;
+        writer.error("File does not exist: " + file_path);
         return false;
     }
 
@@ -40,12 +41,12 @@ bool FileCache::add_file(const std::string& file_id, const std::string& file_pat
     return true;
 }
 
-bool FileCache::add_file(const std::string& file_id, const std::string& content_type, const std::string& content_base64)
+bool FileCache::add_file(const std::string& file_id, const std::string& content_type, const std::string& content_base64, StreamWriter& writer)
 {
     std::string extension = parse_mime_type_extension(content_type);
     if (extension.empty())
     {
-        util::log() << "Invalid MIME type format: " << content_type << std::endl;
+        writer.error("Invalid MIME type format: " + content_type);
         return false;
     }
 
@@ -53,7 +54,7 @@ bool FileCache::add_file(const std::string& file_id, const std::string& content_
     UT_WorkBuffer decoded;
     if (!UT_Base64::decode(UT_StringView(content_base64.c_str()), decoded))
     {
-        util::log() << "Failed to decode base64 file content" << std::endl;
+        writer.error("Failed to decode base64 file content");
         return false;
     }
 
@@ -71,12 +72,14 @@ bool FileCache::add_file(const std::string& file_id, const std::string& content_
         std::ofstream file(resolved_path, std::ios::binary);
         if (!file)
         {
+            writer.error("Failed to create file");
             return false;
         }
 
         file.write(decoded.buffer(), decoded.length());
         if (!file.good())
         {
+            writer.error("Failed to write file");
             return false;
         }
 

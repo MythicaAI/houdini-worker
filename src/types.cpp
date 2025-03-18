@@ -415,7 +415,7 @@ bool parse_request(const std::string& message, WorkerRequest& request, StreamWri
     }
     else
     {
-        util::log() << "Invalid operation: " << op->getString().toStdString() << std::endl;
+        writer.error("Invalid operation: " + op->getString().toStdString());
         return false;
     }
 }
