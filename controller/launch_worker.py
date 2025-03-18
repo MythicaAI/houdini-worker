@@ -14,7 +14,7 @@ def get_worker_cmd(exe_path, client_endpoint, admin_endpoint):
     )
 
 
-async def launch_worker(worker_cmd, admin_ws_endpoint, resolve_queue, shutdown_event):
+async def launch_worker(worker_cmd, admin_ws_endpoint, resolve_queue, response_queue, shutdown_event):
     """This function launches the Houdini-Worker process."""
     log.info("launching %s...", worker_cmd)
 
@@ -25,7 +25,7 @@ async def launch_worker(worker_cmd, admin_ws_endpoint, resolve_queue, shutdown_e
     await asyncio.sleep(5)
 
     # Connect to the process
-    ws_client_task = asyncio.create_task(websocket_client(admin_ws_endpoint, resolve_queue))
+    ws_client_task = asyncio.create_task(websocket_client(admin_ws_endpoint, resolve_queue, response_queue))
 
     # Optionally, you might want to monitor the process or log its output.
     await asyncio.gather(*[ws_client_task, process.wait()])
