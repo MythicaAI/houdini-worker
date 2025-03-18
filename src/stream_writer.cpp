@@ -11,21 +11,21 @@
 
 void StreamWriter::state(AutomationState state)
 {
-    writeToStream("automation", state == AutomationState::Start ? "\"start\"" : "\"end\"");
+    writeToStream(m_client_id, "automation", state == AutomationState::Start ? "\"start\"" : "\"end\"");
 }
 
 void StreamWriter::status(const std::string& message)
 {
     UT_JSONValue json;
     json.setString(message);
-    writeToStream("status", json.toString().c_str());
+    writeToStream(m_client_id, "status", json.toString().c_str());
 }
 
 void StreamWriter::error(const std::string& message)
 {
     UT_JSONValue json;
     json.setString(message);
-    writeToStream("error", json.toString().c_str());
+    writeToStream(m_client_id, "error", json.toString().c_str());
 }
 
 void StreamWriter::file(const std::string& file_name, const std::vector<char>& file_data)
@@ -36,7 +36,7 @@ void StreamWriter::file(const std::string& file_name, const std::vector<char>& f
     UT_Base64::encode((uint8_t*)file_data.data(), file_data.size(), encoded_buffer);
     std::string encoded(encoded_buffer.buffer(), encoded_buffer.length());
 
-    writeToStream("file", "{\"file_name\":\"" + file_name + "\", \"content_base64\":\"" + encoded + "\"}");
+    writeToStream(m_client_id, "file", "{\"file_name\":\"" + file_name + "\", \"content_base64\":\"" + encoded + "\"}");
 }
 
 void StreamWriter::geometry(const Geometry& geometry)
@@ -87,11 +87,17 @@ void StreamWriter::geometry(const Geometry& geometry)
     }
     json += "]}";
 
-    writeToStream("geometry", json);
+    writeToStream(m_client_id, "geometry", json);
 }
 
-void StreamWriter::writeToStream(const std::string& op, const std::string& data)
+void StreamWriter::file_resolve(const std::string& file_id)
+{
+    int target_id = m_admin_id != INVALID_CONNECTION_ID ? m_admin_id : m_client_id;
+    writeToStream(target_id, "file_resolve", "{\"file_id\":\"" + file_id + "\"}");
+}
+
+void StreamWriter::writeToStream(int connection_id, const std::string& op, const std::string& data)
 {
     std::string json = "{\"op\":\"" + op + "\",\"data\":" + data + "}\n";
-    m_websocket.push_response(m_connection_id, json);
+    m_websocket.push_response(connection_id, json);
 }

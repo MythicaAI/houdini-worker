@@ -15,7 +15,10 @@ struct HoudiniSession
 
 struct ClientSession
 {
-    ClientSession(bool admin = false);
+    ClientSession();
+};
 
-    bool m_admin;
+struct AdminSession
+{
+    AdminSession();
 };

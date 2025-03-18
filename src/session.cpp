@@ -16,7 +16,12 @@ HoudiniSession::~HoudiniSession()
     delete m_director;
 }
 
-ClientSession::ClientSession(bool admin)
+ClientSession::ClientSession()
 {
-    m_admin = admin;
+
+}
+
+AdminSession::AdminSession()
+{
+
 }
