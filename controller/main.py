@@ -136,6 +136,7 @@ async def main():
         admin_ws_endpoint)
 
     resolve_queue = asyncio.Queue()
+    response_queue = asyncio.Queue()
     shutdown_event = asyncio.Event()
 
     tasks = [asyncio.create_task(
@@ -143,6 +144,7 @@ async def main():
             args.endpoint,
             args.cache_path,
             resolve_queue,
+            response_queue,
             shutdown_event))]
 
     # Launch the worker if specified and connect to its admin
@@ -153,6 +155,7 @@ async def main():
                 worker_cmd,
                 admin_ws_endpoint,
                 resolve_queue,
+                response_queue,
                 shutdown_event)))
 
     # Accept commands from STDIN

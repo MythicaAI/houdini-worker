@@ -23,6 +23,25 @@ class ResolveForCookRequest(BaseModel):
     package: PackageRef
 
 
+class ResolveFileRequestData(BaseModel):
+    file_id: str
+
+
+class ResolveFileRequest(BaseModel):
+    op: str = "file_resolve"
+    data: ResolveFileRequestData
+
+
+class FileUploadRequestData(BaseModel):
+    file_id: str
+    file_path: str
+
+
+class FileUploadRequest(BaseModel):
+    op: str = "file_upload"
+    data: FileUploadRequestData
+
+
 class Hello(BaseModel):
     op: str = "hello"
 
