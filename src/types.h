@@ -68,11 +68,6 @@ struct CookRequest
     EOutputFormat format;
 };
 
-struct FileResolveRequest
-{
-    std::string file_id;
-};
-
 struct FileUploadRequest
 {
     std::string file_id;

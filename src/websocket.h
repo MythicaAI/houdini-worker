@@ -9,12 +9,15 @@
 #include <thread>
 #include <queue>
 
+static const int INVALID_CONNECTION_ID = -1;
+
 enum class StreamMessageType
 {
     ConnectionOpenClient,
     ConnectionOpenAdmin,
     Message,
-    ConnectionClose
+    ConnectionCloseClient,
+    ConnectionCloseAdmin
 };
 
 struct StreamMessage
