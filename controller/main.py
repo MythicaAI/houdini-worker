@@ -92,6 +92,18 @@ def parse_args():
         help="Path to the Houdini-Worker executable."
     )
     parser.add_argument(
+        "--clientport",
+        required=False,
+        type=int,
+        default=8765,
+        help="Port for client websocket connections.")
+    parser.add_argument(
+        "--adminport",
+        required=False,
+        type=int,
+        default=9876,
+        help="Port for admin websocket connections.")
+    parser.add_argument(
         "--stdin",
         required=False,
         action="store_true",
@@ -116,13 +128,13 @@ async def main():
     args = parse_args()
 
     exe_path = "./houdini_worker"
-    admin_ws_endpoint = f"ws://localhost:9876"
-    client_ws_endpoint = f"ws://0.0.0.0:8765"
+    admin_ws_endpoint = f"ws://localhost:{args.adminport}"
+    client_ws_endpoint = f"ws://0.0.0.0:{args.clientport}"
     worker_cmd = get_worker_cmd(
         exe_path,
         client_ws_endpoint,
         admin_ws_endpoint)
-    
+
     resolve_queue = asyncio.Queue()
     shutdown_event = asyncio.Event()
 
@@ -139,6 +151,7 @@ async def main():
         tasks.append(asyncio.create_task(
             launch_worker(
                 worker_cmd,
+                admin_ws_endpoint,
                 resolve_queue,
                 shutdown_event)))
 

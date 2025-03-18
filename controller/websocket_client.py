@@ -10,15 +10,17 @@ log = logging.getLogger(__name__)
 # This function connects to the WebSocket server at 127.0.0.1:9876, sends an op:hello, and listens for resolve-for-cook requests
 async def websocket_client(admin_ws_endpoint, resolve_queue):
     async def hello(websocket):
-        await websocket.send(json.dumps({"op": "hello"}))  # Send op:hello
+        await websocket.send_text(json.dumps({"op": "hello"}))
         log.info("Hello message sent. Waiting for messages...")
 
     async with httpx.AsyncClient() as client:
         async with aconnect_ws(admin_ws_endpoint, client) as websocket:
             log.info("Connected to Houdini worker at %s", admin_ws_endpoint)
             await hello(websocket)
-            async for message in websocket.iter_text():
+
+            while True:
                 try:
+                    message = await websocket.receive_text()
                     data = json.loads(message)
                     op = data.get("op")
                     if not op:
