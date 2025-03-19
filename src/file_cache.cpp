@@ -29,25 +29,13 @@ std::string parse_mime_type_extension(const std::string& mime_type)
     return std::regex_search(mime_type, match, mimeRegex) ? match[1].str() : "";
 }
 
-bool FileCache::add_file(const std::string& file_id, const std::string& file_path, StreamWriter& writer)
-{
-    if (!std::filesystem::exists(file_path))
-    {
-        writer.error("File does not exist: " + file_path);
-        return false;
-    }
-
-    m_file_by_id[file_id] = file_path;
-    return true;
-}
-
-bool FileCache::add_file(const std::string& file_id, const std::string& content_type, const std::string& content_base64, StreamWriter& writer)
+std::string FileCache::add_file(const std::string& content_base64, const std::string& content_type, StreamWriter& writer)
 {
     std::string extension = parse_mime_type_extension(content_type);
     if (extension.empty())
     {
         writer.error("Invalid MIME type format: " + content_type);
-        return false;
+        return "";
     }
 
     // Decode base64 content
@@ -55,7 +43,7 @@ bool FileCache::add_file(const std::string& file_id, const std::string& content_
     if (!UT_Base64::decode(UT_StringView(content_base64.c_str()), decoded))
     {
         writer.error("Failed to decode base64 file content");
-        return false;
+        return "";
     }
 
     // Generate hash for the content
@@ -67,36 +55,39 @@ bool FileCache::add_file(const std::string& file_id, const std::string& content_
     std::string resolved_path = (std::filesystem::path(m_cache_dir) / (hash + "." + extension)).string();
 
     // Store the file content if it's not already cached
-    if (m_file_by_hash.find(hash) == m_file_by_hash.end())
+    if (!std::filesystem::exists(resolved_path))
     {
         std::ofstream file(resolved_path, std::ios::binary);
         if (!file)
         {
             writer.error("Failed to create file");
-            return false;
+            return "";
         }
 
         file.write(decoded.buffer(), decoded.length());
         if (!file.good())
         {
             writer.error("Failed to write file");
-            return false;
+            return "";
         }
-
-        m_file_by_hash[hash] = resolved_path;
     }
 
-    m_file_by_id[file_id] = resolved_path;
+    return resolved_path;
+}
+
+bool FileMap::add_file(const std::string& file_id, const std::string& file_path, StreamWriter& writer)
+{
+    if (file_path.empty() || !std::filesystem::exists(file_path))
+    {
+        writer.error("File does not exist: " + file_path);
+        return false;
+    }
+
+    m_file_by_id[file_id] = file_path;
     return true;
 }
 
-std::string FileCache::get_file_by_hash(const std::string& hash)
-{
-    auto iter = m_file_by_hash.find(hash);
-    return iter != m_file_by_hash.end() ? iter->second : "";
-}
-
-std::string FileCache::get_file_by_id(const std::string& file_id)
+std::string FileMap::get_file_by_id(const std::string& file_id)
 {
     auto iter = m_file_by_id.find(file_id);
     return iter != m_file_by_id.end() ? iter->second : "";

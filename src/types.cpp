@@ -420,41 +420,49 @@ bool parse_request(const std::string& message, WorkerRequest& request, StreamWri
     }
 }
 
-void resolve_file(FileParameter& file, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files)
+void resolve_file(FileParameter& file, FileMap* file_map_admin, FileMap& file_map_client, StreamWriter& writer, std::vector<std::string>& unresolved_files)
 {
-    std::string resolved_path = file_cache.get_file_by_id(file.file_id);
+    std::string resolved_path;
+    if (file_map_admin)
+    {
+        resolved_path = file_map_admin->get_file_by_id(file.file_id);
+    }
+
     if (resolved_path.empty())
     {
-        // Fall back to using files baked into the image
-        if (std::filesystem::exists(file.file_path))
-        {
-            resolved_path = file.file_path;
-        }
-        else
-        {
-            unresolved_files.push_back(file.file_id);
-            writer.error("File not found: " + file.file_id);
-            return;
-        }
+        resolved_path = file_map_client.get_file_by_id(file.file_id);
+    }
+
+    // Fall back to using files baked into the image
+    if (resolved_path.empty() && std::filesystem::exists(file.file_path))
+    {
+        resolved_path = file.file_path;
+    }
+
+    if (resolved_path.empty())
+    {
+        unresolved_files.push_back(file.file_id);
+        writer.error("File not found: " + file.file_id);
+        return;
     }
 
     file.file_path = resolved_path;
 }
 
-void resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files)
+void resolve_files(CookRequest& request, FileMap* file_map_admin, FileMap& file_map_client, StreamWriter& writer, std::vector<std::string>& unresolved_files)
 {
-    resolve_file(request.hda_file, file_cache, writer, unresolved_files);
+    resolve_file(request.hda_file, file_map_admin, file_map_client, writer, unresolved_files);
 
     for (auto& [idx, file] : request.inputs)
     {
-        resolve_file(file, file_cache, writer, unresolved_files);
+        resolve_file(file, file_map_admin, file_map_client, writer, unresolved_files);
     }
 
     for (auto& [key, param] : request.parameters)
     {
         if (std::holds_alternative<FileParameter>(param))
         {
-            resolve_file(std::get<FileParameter>(param), file_cache, writer, unresolved_files);
+            resolve_file(std::get<FileParameter>(param), file_map_admin, file_map_client, writer, unresolved_files);
         }
     }
 }

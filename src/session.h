@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.h"
+#include "file_cache.h"
 
 class MOT_Director;
 
@@ -15,10 +16,10 @@ struct HoudiniSession
 
 struct ClientSession
 {
-    ClientSession();
+    FileMap m_file_map;
 };
 
 struct AdminSession
 {
-    AdminSession();
+    FileMap m_file_map;
 };
