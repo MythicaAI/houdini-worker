@@ -519,6 +519,49 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputF
         export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "file", 0, 0.0f);
         export_node->setInt("usesoppath", 0, 0.0f, 1);
     }
+    else if (format == EOutputFormat::USD)
+    {
+        OP_Network* stage = (OP_Network*)director->findNode("/stage");
+        if (!stage)
+        {
+            writer.error("Failed to find stage network");
+            return false;
+        }
+
+        OP_Node* sop_import = (OP_Node*)stage->findNode("sop_import");
+        if (!sop_import)
+        {
+            sop_import = (OP_Node*)stage->createNode("sopimport", "sop_import");
+            if (!sop_import || !sop_import->runCreateScript())
+            {
+                writer.error("Failed to create usd sop import node");
+                return false;
+            }
+        }
+
+        sop_import->setString(sop_path.c_str(), CH_STRING_LITERAL, "soppath", 0, 0.0f);
+
+        export_node = (ROP_Node*)rop->findNode("usd_export");
+        if (!export_node)
+        {
+            export_node = (ROP_Node*)rop->createNode("usd", "usd_export");
+
+            if (!export_node || !export_node->runCreateScript())
+            {
+                writer.error("Failed to create usd export node");
+                return false;
+            }
+        }
+
+        UT_String sop_import_path;
+        sop_import->getFullPath(sop_import_path);
+
+        out_path += ".usd";
+
+        export_node->setString(sop_import_path.c_str(), CH_STRING_LITERAL, "loppath", 0, 0.0f);
+        export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "lopoutput", 0, 0.0f);
+        export_node->setString("flattenalllayers", CH_STRING_LITERAL, "savestyle", 0, 0.0f);
+    }
     else
     {
         writer.error("Unknown output format");
@@ -619,6 +662,17 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
         }
 
         writer.file("generated_model.fbx", file_data);
+    }
+    else if (format == EOutputFormat::USD)
+    {
+        std::vector<char> file_data;
+        if (!export_geometry_with_format(director, sop, format, file_data, writer))
+        {
+            writer.error("Failed to export usd geometry");
+            return false;
+        }
+
+        writer.file("generated_model.usd", file_data);
     }
     else
     {
