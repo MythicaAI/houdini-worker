@@ -463,12 +463,6 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputF
 {
     rmt_ScopedCPUSample(ExportGeometryFormat, 0);
 
-    // Determin paths
-    UT_String sop_path;
-    sop->getFullPath(sop_path);
-
-    std::string out_path = "/tmp/export_" + std::to_string(rand());
-
     // Find the root /out network
     OP_Network* rop = (OP_Network*)director->findNode("/out");
     if (!rop)
@@ -477,7 +471,12 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputF
         return false;
     }
 
-    // Create the export node
+    // Setup the export node
+    UT_String sop_path;
+    sop->getFullPath(sop_path);
+
+    std::string out_path = "/tmp/export_" + std::to_string(rand());
+
     ROP_Node* export_node = nullptr;
     if (format == EOutputFormat::FBX)
     {
