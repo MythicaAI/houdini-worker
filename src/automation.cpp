@@ -461,8 +461,9 @@ bool export_geometry_obj(const GU_Detail* gdp, std::vector<char>& file_data, Str
 
 bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputFormat format, std::vector<char>& file_data, StreamWriter& writer)
 {
-    rmt_ScopedCPUSample(ExportGeometry, 0);
+    rmt_ScopedCPUSample(ExportGeometryFormat, 0);
 
+    // Determin paths
     UT_String sop_path;
     sop->getFullPath(sop_path);
 
@@ -476,6 +477,7 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputF
         return false;
     }
 
+    // Create the export node
     ROP_Node* export_node = nullptr;
     if (format == EOutputFormat::FBX)
     {
