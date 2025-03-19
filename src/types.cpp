@@ -31,6 +31,10 @@ static EOutputFormat parse_output_format(const std::string& format_str)
     {
         return EOutputFormat::FBX;
     }
+    else if (format_str == "usd")
+    {
+        return EOutputFormat::USD;
+    }
     else
     {
         return EOutputFormat::INVALID;
