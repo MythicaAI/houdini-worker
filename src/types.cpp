@@ -23,6 +23,10 @@ static EOutputFormat parse_output_format(const std::string& format_str)
     {
         return EOutputFormat::OBJ;
     }
+    else if (format_str == "glb")
+    {
+        return EOutputFormat::GLB;
+    }
     else
     {
         return EOutputFormat::INVALID;

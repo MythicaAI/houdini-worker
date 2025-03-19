@@ -11,8 +11,10 @@
 #include <GEO/GEO_Primitive.h>
 #include <GEO/GEO_IOTranslator.h>
 #include <GU/GU_Detail.h>
+#include <ROP/ROP_Node.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
+#include <UT/UT_Error.h>
 #include <UT/UT_Ramp.h>
 #include <algorithm>
 #include <filesystem>
@@ -457,7 +459,74 @@ bool export_geometry_obj(const GU_Detail* gdp, std::vector<char>& file_data, Str
     return true;
 }
 
-bool export_geometry(EOutputFormat format, OP_Node* node, StreamWriter& writer)
+bool export_geometry_glb(MOT_Director* director, SOP_Node* sop, std::vector<char>& file_data, StreamWriter& writer)
+{
+    rmt_ScopedCPUSample(ExportGeometryGLB, 0);
+
+    // Find the root /out network
+    OP_Network* rop = (OP_Network*)director->findNode("/out");
+    if (!rop)
+    {
+        writer.error("Failed to find rop network");
+        return false;
+    }
+
+    // Create glb export node
+    ROP_Node* glb_node = (ROP_Node*)rop->findNode("glb_export");
+    if (!glb_node)
+    {
+        glb_node = (ROP_Node*)rop->createNode("gltf", "glb_export");
+
+        if (!glb_node || !glb_node->runCreateScript())
+        {
+            writer.error("Failed to create glb export node");
+            return false;
+        }
+    }
+
+    // Set the output file path and target SOP
+    UT_String sop_path;
+    sop->getFullPath(sop_path);
+
+    std::string out_path = "/tmp/export_" + std::to_string(rand()) + ".glb";
+
+    glb_node->setString(out_path.c_str(), CH_STRING_LITERAL, "file", 0, 0.0f);
+    glb_node->setInt("usesoppath", 0, 0.0f, 1);
+    glb_node->setString(sop_path.c_str(), CH_STRING_LITERAL, "soppath", 0, 0.0f);
+
+    // Execute the ROP for one frame
+    OP_ERROR error = glb_node->execute(0.0f);
+    if (error >= UT_ERROR_ABORT)
+    {
+        writer.error("Failed to execute GLB export");
+        return false;
+    }
+
+    // Load the exported file back into memory
+    std::ifstream file(out_path, std::ios::binary | std::ios::ate);
+    if (!file.is_open())
+    {
+        writer.error("Failed to open exported GLB file");
+        return false;
+    }
+
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    file_data.resize(size);
+    if (!file.read(file_data.data(), size))
+    {
+        writer.error("Failed to read exported GLB file");
+        return false;
+    }
+
+    file.close();
+    std::filesystem::remove(out_path);
+
+    return true;
+}
+
+bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node, StreamWriter& writer)
 {
     rmt_ScopedCPUSample(ExportGeometry, 0);
 
@@ -497,6 +566,17 @@ bool export_geometry(EOutputFormat format, OP_Node* node, StreamWriter& writer)
         }
 
         writer.file("generated_model.obj", file_data);
+    }
+    else if (format == EOutputFormat::GLB)
+    {
+        std::vector<char> file_data;
+        if (!export_geometry_glb(director, sop, file_data, writer))
+        {
+            writer.error("Failed to export glb geometry");
+            return false;
+        }
+
+        writer.file("generated_model.glb", file_data);
     }
     else
     {
@@ -587,7 +667,7 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
     }
 
     // Export results
-    if (!export_geometry(request.format, node, writer))
+    if (!export_geometry(session.m_director, request.format, node, writer))
     {
         writer.error("Failed to export geometry");
         return false;
