@@ -70,18 +70,22 @@ async def package_resolver(endpoint, cache_path, resolve_queue, response_queue, 
                 download_file(file_info["url"], cache_path)
             elif req.op == "file_resolve":
                 file_id = req.data.file_id
-                file_info = await client.get_download_info(file_id)
-                extension = file_info["content_type"].split("/")[-1]
-                file_path = download_file(file_info["url"], cache_path, f"{file_id}.{extension}")
-                log.info("resolved file: %s, %s", file_id, file_path)
+                try:
+                    file_info = await client.get_download_info(file_id)
+                    extension = file_info["content_type"].split("/")[-1]
+                    file_path = download_file(file_info["url"], cache_path, f"{file_id}.{extension}")
+                    log.info("resolved file: %s, %s", file_id, file_path)
 
-                response = FileUploadRequest(
-                    data=FileUploadRequestData(
-                        file_id=file_id,
-                        file_path=file_path
+                    response = FileUploadRequest(
+                        data=FileUploadRequestData(
+                            file_id=file_id,
+                            file_path=file_path
+                        )
                     )
-                )
-                await response_queue.put(response)
+                    await response_queue.put(response)
+                except Exception as e:
+                    log.error(f"error resolving {file_id}: Error: {e}")
+                    continue
             else:
                 log.error("unknown request: %s", req)
                 continue
