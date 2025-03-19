@@ -13,16 +13,15 @@ static const int INVALID_CONNECTION_ID = -1;
 
 enum class StreamMessageType
 {
-    ConnectionOpenClient,
-    ConnectionOpenAdmin,
+    ConnectionOpen,
     Message,
-    ConnectionCloseClient,
-    ConnectionCloseAdmin
+    ConnectionClose
 };
 
 struct StreamMessage
 {
     int connection_id;
+    bool is_admin;
     StreamMessageType type;
     std::string message;
 };

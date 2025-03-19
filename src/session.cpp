@@ -15,3 +15,9 @@ HoudiniSession::~HoudiniSession()
     OPsetDirector(nullptr);
     delete m_director;
 }
+
+ClientSession::ClientSession(bool is_admin)
+    : m_is_admin(is_admin)
+{
+
+}

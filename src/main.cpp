@@ -56,6 +56,19 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, File
     }
 }
 
+int find_admin_id(const std::map<int, ClientSession>& sessions)
+{
+    for (const auto& session : sessions)
+    {
+        if (session.second.m_is_admin)
+        {
+            return session.first;
+        }
+    }
+
+    return INVALID_CONNECTION_ID;
+}
+
 int theMain(int argc, char *argv[])
 {
     if (argc != 3)
@@ -70,11 +83,10 @@ int theMain(int argc, char *argv[])
     Remotery* rmt;
     rmt_CreateGlobalInstance(&rmt);
 
-    // Initialize Houdini
+    // Initialize worker state
     FileCache file_cache;
     HoudiniSession houdini_session;
-    std::map<int, ClientSession> client_sessions;
-    std::map<int, AdminSession> admin_sessions;
+    std::map<int, ClientSession> sessions;
 
     // Initialize websocket server
     WebSocket websocket(client_endpoint, admin_endpoint);
@@ -87,55 +99,34 @@ int theMain(int argc, char *argv[])
         {
             rmt_ScopedCPUSample(ProcessRequest, 0);
 
-            if (message.type == StreamMessageType::ConnectionOpenClient)
+            if (message.type == StreamMessageType::ConnectionOpen)
             {
-                assert(client_sessions.find(message.connection_id) == client_sessions.end());
-                client_sessions[message.connection_id] = ClientSession();
-            }
-            else if (message.type == StreamMessageType::ConnectionOpenAdmin)
-            {
-                assert(admin_sessions.find(message.connection_id) == admin_sessions.end());
-                admin_sessions[message.connection_id] = AdminSession();
+                assert(sessions.find(message.connection_id) == sessions.end());
+                sessions[message.connection_id] = ClientSession(message.is_admin);
             }
             else if (message.type == StreamMessageType::Message)
             {
                 int client_id = message.connection_id;
-                int admin_id = INVALID_CONNECTION_ID;
-                FileMap* file_map_admin = nullptr;
-                FileMap* file_map_client = nullptr;
-
-                if (client_sessions.find(client_id) != client_sessions.end())
-                {
-                    admin_id = admin_sessions.empty() ? INVALID_CONNECTION_ID : admin_sessions.begin()->first;
-                    file_map_admin = admin_sessions.empty() ? nullptr : &admin_sessions.begin()->second.m_file_map;
-                    file_map_client = &client_sessions[client_id].m_file_map;
-                }
-                else if (admin_sessions.find(client_id) != admin_sessions.end())
-                {
-                    admin_id = client_id;
-                    file_map_admin = &admin_sessions[client_id].m_file_map;
-                    file_map_client = &admin_sessions[client_id].m_file_map;
-                }
-                else
+                if (sessions.find(client_id) == sessions.end())
                 {
                     util::log() << "Unknown connection id: " << client_id << std::endl;
                     continue;
                 }
 
+                int admin_id = !sessions[client_id].m_is_admin ? find_admin_id(sessions) : INVALID_CONNECTION_ID;
+
+                FileMap& file_map_client = sessions[client_id].m_file_map;
+                FileMap* file_map_admin = admin_id != INVALID_CONNECTION_ID ? &sessions[admin_id].m_file_map : nullptr;
+
                 StreamWriter writer(websocket, client_id, admin_id);
                 writer.state(AutomationState::Start);
-                process_message(houdini_session, file_cache, file_map_admin, *file_map_client, message.message, writer);
+                process_message(houdini_session, file_cache, file_map_admin, file_map_client, message.message, writer);
                 writer.state(AutomationState::End);
             }
-            else if (message.type == StreamMessageType::ConnectionCloseClient)
+            else if (message.type == StreamMessageType::ConnectionClose)
             {
-                assert(client_sessions.find(message.connection_id) != client_sessions.end());
-                client_sessions.erase(message.connection_id);
-            }
-            else if (message.type == StreamMessageType::ConnectionCloseAdmin)
-            {
-                assert(admin_sessions.find(message.connection_id) != admin_sessions.end());
-                admin_sessions.erase(message.connection_id);
+                assert(sessions.find(message.connection_id) != sessions.end());
+                sessions.erase(message.connection_id);
             }
         }
     }
