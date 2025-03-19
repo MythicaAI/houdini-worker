@@ -16,10 +16,8 @@ struct HoudiniSession
 
 struct ClientSession
 {
-    FileMap m_file_map;
-};
+    ClientSession(bool is_admin = false);
 
-struct AdminSession
-{
+    bool m_is_admin;
     FileMap m_file_map;
 };

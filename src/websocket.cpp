@@ -36,7 +36,8 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 
         StreamMessage msg;
         msg.connection_id = c->id;
-        msg.type = is_admin ? StreamMessageType::ConnectionOpenAdmin : StreamMessageType::ConnectionOpenClient;
+        msg.is_admin = is_admin;
+        msg.type = StreamMessageType::ConnectionOpen;
 
         state->m_queue.push_request(msg);
     }
@@ -49,6 +50,7 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 
         StreamMessage msg;
         msg.connection_id = c->id;
+        msg.is_admin = is_admin;
         msg.type = StreamMessageType::Message;
         msg.message = message;
 
@@ -61,7 +63,8 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 
         StreamMessage msg;
         msg.connection_id = c->id;
-        msg.type = is_admin ? StreamMessageType::ConnectionCloseAdmin : StreamMessageType::ConnectionCloseClient;
+        msg.is_admin = is_admin;
+        msg.type = StreamMessageType::ConnectionClose;
 
         state->m_queue.push_request(msg);
     }
