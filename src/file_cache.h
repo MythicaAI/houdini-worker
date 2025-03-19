@@ -10,14 +10,18 @@ class FileCache
 public:
     FileCache();
 
+    std::string add_file(const std::string& content_base64, const std::string& content_type, StreamWriter& writer);
+
+private:
+    std::string m_cache_dir;
+};
+
+class FileMap
+{
+public:
     bool add_file(const std::string& file_id, const std::string& file_path, StreamWriter& writer);
-    bool add_file(const std::string& file_id, const std::string& content_type, const std::string& content_base64, StreamWriter& writer);
     std::string get_file_by_id(const std::string& file_id);
 
 private:
-    std::string get_file_by_hash(const std::string& hash);
-
-    std::string m_cache_dir;
-    std::map<std::string, std::string> m_file_by_hash;
     std::map<std::string, std::string> m_file_by_id;
 };

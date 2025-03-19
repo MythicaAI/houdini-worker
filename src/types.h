@@ -7,7 +7,7 @@
 #include <vector>
 #include <UT/UT_Spline.h>
 
-class FileCache;
+class FileMap;
 class StreamWriter;
 
 struct Geometry
@@ -81,5 +81,5 @@ using WorkerRequest = std::variant<CookRequest, FileUploadRequest>;
 namespace util
 {
     bool parse_request(const std::string& message, WorkerRequest& request, StreamWriter& writer);
-    void resolve_files(CookRequest& request, FileCache& file_cache, StreamWriter& writer, std::vector<std::string>& unresolved_files);
+    void resolve_files(CookRequest& request, FileMap& file_map, StreamWriter& writer, std::vector<std::string>& unresolved_files);
 }

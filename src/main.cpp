@@ -10,7 +10,7 @@
 #include <map>
 #include <UT/UT_Main.h>
 
-static void process_message(HoudiniSession& session, FileCache& file_cache, const std::string& message, StreamWriter& writer)
+static void process_message(HoudiniSession& session, FileCache& file_cache, FileMap& file_map, const std::string& message, StreamWriter& writer)
 {
     WorkerRequest request;
     if (!util::parse_request(message, request, writer))
@@ -24,7 +24,7 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
         CookRequest& cook_req = std::get<CookRequest>(request);
 
         std::vector<std::string> unresolved_files;
-        util::resolve_files(cook_req, file_cache, writer, unresolved_files);
+        util::resolve_files(cook_req, file_map, writer, unresolved_files);
 
         for (const std::string& file_id : unresolved_files)
         {
@@ -43,17 +43,13 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, cons
     {
         FileUploadRequest& file_upload_req = std::get<FileUploadRequest>(request);
 
-        bool result = false;
-        if (!file_upload_req.file_path.empty())
+        std::string file_path = file_upload_req.file_path;
+        if (file_path.empty())
         {
-            result = file_cache.add_file(file_upload_req.file_id, file_upload_req.file_path, writer);
-        }
-        else
-        {
-            result = file_cache.add_file(file_upload_req.file_id, file_upload_req.content_type, file_upload_req.content_base64, writer);
+            file_path = file_cache.add_file(file_upload_req.content_base64, file_upload_req.content_type, writer);
         }
 
-        if (!result)
+        if (!file_map.add_file(file_upload_req.file_id, file_path, writer))
         {
             writer.error("Failed to upload file: " + file_upload_req.file_id);
         }
@@ -76,6 +72,7 @@ int theMain(int argc, char *argv[])
 
     // Initialize Houdini
     FileCache file_cache;
+    FileMap file_map;
     HoudiniSession houdini_session;
     std::map<int, ClientSession> client_sessions;
     std::map<int, AdminSession> admin_sessions;
@@ -109,7 +106,7 @@ int theMain(int argc, char *argv[])
 
                 StreamWriter writer(websocket, client_id, admin_id);
                 writer.state(AutomationState::Start);
-                process_message(houdini_session, file_cache, message.message, writer);
+                process_message(houdini_session, file_cache, file_map, message.message, writer);
                 writer.state(AutomationState::End);
             }
             else if (message.type == StreamMessageType::ConnectionCloseClient)
