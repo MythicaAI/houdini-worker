@@ -459,9 +459,9 @@ bool export_geometry_obj(const GU_Detail* gdp, std::vector<char>& file_data, Str
     return true;
 }
 
-bool export_geometry_glb(MOT_Director* director, SOP_Node* sop, std::vector<char>& file_data, StreamWriter& writer)
+bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputFormat format, std::vector<char>& file_data, StreamWriter& writer)
 {
-    rmt_ScopedCPUSample(ExportGeometryGLB, 0);
+    rmt_ScopedCPUSample(ExportGeometryFormat, 0);
 
     // Find the root /out network
     OP_Network* rop = (OP_Network*)director->findNode("/out");
@@ -471,34 +471,65 @@ bool export_geometry_glb(MOT_Director* director, SOP_Node* sop, std::vector<char
         return false;
     }
 
-    // Create glb export node
-    ROP_Node* glb_node = (ROP_Node*)rop->findNode("glb_export");
-    if (!glb_node)
-    {
-        glb_node = (ROP_Node*)rop->createNode("gltf", "glb_export");
-
-        if (!glb_node || !glb_node->runCreateScript())
-        {
-            writer.error("Failed to create glb export node");
-            return false;
-        }
-    }
-
-    // Set the output file path and target SOP
+    // Setup the export node
     UT_String sop_path;
     sop->getFullPath(sop_path);
 
-    std::string out_path = "/tmp/export_" + std::to_string(rand()) + ".glb";
+    std::string out_path = "/tmp/export_" + std::to_string(rand());
 
-    glb_node->setString(out_path.c_str(), CH_STRING_LITERAL, "file", 0, 0.0f);
-    glb_node->setInt("usesoppath", 0, 0.0f, 1);
-    glb_node->setString(sop_path.c_str(), CH_STRING_LITERAL, "soppath", 0, 0.0f);
+    ROP_Node* export_node = nullptr;
+    if (format == EOutputFormat::FBX)
+    {
+        export_node = (ROP_Node*)rop->findNode("fbx_export");
+        if (!export_node)
+        {
+            export_node = (ROP_Node*)rop->createNode("filmboxfbx", "fbx_export");
+
+            if (!export_node || !export_node->runCreateScript())
+            {
+                writer.error("Failed to create fbx export node");
+                return false;
+            }
+        }
+
+        out_path += ".fbx";
+
+        export_node->setString(sop_path.c_str(), CH_STRING_LITERAL, "startnode", 0, 0.0f);
+        export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "sopoutput", 0, 0.0f);
+        export_node->setInt("exportkind", 0, 0.0f, 0);
+
+    }
+    else if (format == EOutputFormat::GLB)
+    {
+        export_node = (ROP_Node*)rop->findNode("glb_export");
+        if (!export_node)
+        {
+            export_node = (ROP_Node*)rop->createNode("gltf", "glb_export");
+
+            if (!export_node || !export_node->runCreateScript())
+            {
+                writer.error("Failed to create glb export node");
+                return false;
+            }
+        }
+
+        out_path += ".glb";
+
+        export_node->setString(sop_path.c_str(), CH_STRING_LITERAL, "soppath", 0, 0.0f);
+        export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "file", 0, 0.0f);
+        export_node->setInt("usesoppath", 0, 0.0f, 1);
+    }
+    else
+    {
+        writer.error("Unknown output format");
+        return false;
+    }
 
     // Execute the ROP for one frame
-    OP_ERROR error = glb_node->execute(0.0f);
+    OP_ERROR error = export_node->execute(0.0f);
     if (error >= UT_ERROR_ABORT)
     {
-        writer.error("Failed to execute GLB export");
+        writer.error("Failed to execute export");
         return false;
     }
 
@@ -506,7 +537,7 @@ bool export_geometry_glb(MOT_Director* director, SOP_Node* sop, std::vector<char
     std::ifstream file(out_path, std::ios::binary | std::ios::ate);
     if (!file.is_open())
     {
-        writer.error("Failed to open exported GLB file");
+        writer.error("Failed to open exported file");
         return false;
     }
 
@@ -516,7 +547,7 @@ bool export_geometry_glb(MOT_Director* director, SOP_Node* sop, std::vector<char
     file_data.resize(size);
     if (!file.read(file_data.data(), size))
     {
-        writer.error("Failed to read exported GLB file");
+        writer.error("Failed to read exported file");
         return false;
     }
 
@@ -570,13 +601,24 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
     else if (format == EOutputFormat::GLB)
     {
         std::vector<char> file_data;
-        if (!export_geometry_glb(director, sop, file_data, writer))
+        if (!export_geometry_with_format(director, sop, format, file_data, writer))
         {
             writer.error("Failed to export glb geometry");
             return false;
         }
 
         writer.file("generated_model.glb", file_data);
+    }
+    else if (format == EOutputFormat::FBX)
+    {
+        std::vector<char> file_data;
+        if (!export_geometry_with_format(director, sop, format, file_data, writer))
+        {
+            writer.error("Failed to export fbx geometry");
+            return false;
+        }
+
+        writer.file("generated_model.fbx", file_data);
     }
     else
     {
