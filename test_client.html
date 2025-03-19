@@ -748,7 +748,7 @@
     if (data.op === "geometry") {
       const mesh = data.data;   // get the mesh from the payload
       if (mesh.points && mesh.indices) {
-        createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs);
+        createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs, mesh.colors);
       }
       handleRequestComplete();
     }
@@ -775,12 +775,13 @@
   }
 
   let customMesh = null;
-  const createMeshFromData = (vertices, indices, normals, uvs) => {
+  const createMeshFromData = (vertices, indices, normals, uvs, colors) => {
     const vertexData = new BABYLON.VertexData();
     vertexData.positions = vertices;
     vertexData.indices = indices;
     vertexData.normals = normals;
     vertexData.uvs = uvs;
+    vertexData.colors = colors;
 
     // Fast path to update existing mesh
     if (customMesh) {
