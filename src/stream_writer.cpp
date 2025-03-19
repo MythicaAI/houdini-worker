@@ -76,6 +76,18 @@ void StreamWriter::geometry(const Geometry& geometry)
             }
         }
     }
+    if (geometry.colors.size() > 0)
+    {
+        json += "],\"colors\":[";
+        for (size_t i = 0; i < geometry.colors.size(); i++)
+        {
+            json += std::to_string(geometry.colors[i]);
+            if (i < geometry.colors.size() - 1)
+            {
+                json += ",";
+            }
+        }
+    }
     json += "],\"indices\":[";
     for (size_t i = 0; i < geometry.indices.size(); i++)
     {
