@@ -81,5 +81,5 @@ using WorkerRequest = std::variant<CookRequest, FileUploadRequest>;
 namespace util
 {
     bool parse_request(const std::string& message, WorkerRequest& request, StreamWriter& writer);
-    void resolve_files(CookRequest& request, FileMap& file_map, StreamWriter& writer, std::vector<std::string>& unresolved_files);
+    void resolve_files(CookRequest& request, FileMap* file_map_admin, FileMap& file_map_client, StreamWriter& writer, std::vector<std::string>& unresolved_files);
 }

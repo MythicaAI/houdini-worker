@@ -10,7 +10,7 @@
 #include <map>
 #include <UT/UT_Main.h>
 
-static void process_message(HoudiniSession& session, FileCache& file_cache, FileMap& file_map, const std::string& message, StreamWriter& writer)
+static void process_message(HoudiniSession& session, FileCache& file_cache, FileMap* file_map_admin, FileMap& file_map_client, const std::string& message, StreamWriter& writer)
 {
     WorkerRequest request;
     if (!util::parse_request(message, request, writer))
@@ -24,7 +24,7 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, File
         CookRequest& cook_req = std::get<CookRequest>(request);
 
         std::vector<std::string> unresolved_files;
-        util::resolve_files(cook_req, file_map, writer, unresolved_files);
+        util::resolve_files(cook_req, file_map_admin, file_map_client, writer, unresolved_files);
 
         for (const std::string& file_id : unresolved_files)
         {
@@ -49,7 +49,7 @@ static void process_message(HoudiniSession& session, FileCache& file_cache, File
             file_path = file_cache.add_file(file_upload_req.content_base64, file_upload_req.content_type, writer);
         }
 
-        if (!file_map.add_file(file_upload_req.file_id, file_path, writer))
+        if (!file_map_client.add_file(file_upload_req.file_id, file_path, writer))
         {
             writer.error("Failed to upload file: " + file_upload_req.file_id);
         }
@@ -72,7 +72,6 @@ int theMain(int argc, char *argv[])
 
     // Initialize Houdini
     FileCache file_cache;
-    FileMap file_map;
     HoudiniSession houdini_session;
     std::map<int, ClientSession> client_sessions;
     std::map<int, AdminSession> admin_sessions;
@@ -100,13 +99,32 @@ int theMain(int argc, char *argv[])
             }
             else if (message.type == StreamMessageType::Message)
             {
-                int admin_id = admin_sessions.empty() ? INVALID_CONNECTION_ID : admin_sessions.begin()->first;
                 int client_id = message.connection_id;
-                assert(client_sessions.find(client_id) != client_sessions.end());
+                int admin_id = INVALID_CONNECTION_ID;
+                FileMap* file_map_admin = nullptr;
+                FileMap* file_map_client = nullptr;
+
+                if (client_sessions.find(client_id) != client_sessions.end())
+                {
+                    admin_id = admin_sessions.empty() ? INVALID_CONNECTION_ID : admin_sessions.begin()->first;
+                    file_map_admin = admin_sessions.empty() ? nullptr : &admin_sessions.begin()->second.m_file_map;
+                    file_map_client = &client_sessions[client_id].m_file_map;
+                }
+                else if (admin_sessions.find(client_id) != admin_sessions.end())
+                {
+                    admin_id = client_id;
+                    file_map_admin = &admin_sessions[client_id].m_file_map;
+                    file_map_client = &admin_sessions[client_id].m_file_map;
+                }
+                else
+                {
+                    util::log() << "Unknown connection id: " << client_id << std::endl;
+                    continue;
+                }
 
                 StreamWriter writer(websocket, client_id, admin_id);
                 writer.state(AutomationState::Start);
-                process_message(houdini_session, file_cache, file_map, message.message, writer);
+                process_message(houdini_session, file_cache, file_map_admin, *file_map_client, message.message, writer);
                 writer.state(AutomationState::End);
             }
             else if (message.type == StreamMessageType::ConnectionCloseClient)

@@ -15,13 +15,3 @@ HoudiniSession::~HoudiniSession()
     OPsetDirector(nullptr);
     delete m_director;
 }
-
-ClientSession::ClientSession()
-{
-
-}
-
-AdminSession::AdminSession()
-{
-
-}
