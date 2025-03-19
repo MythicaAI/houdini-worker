@@ -58,7 +58,8 @@ enum class EOutputFormat
     INVALID,
     RAW,
     OBJ,
-    GLB
+    GLB,
+    FBX
 };
 
 struct CookRequest

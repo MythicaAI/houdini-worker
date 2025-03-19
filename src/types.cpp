@@ -27,6 +27,10 @@ static EOutputFormat parse_output_format(const std::string& format_str)
     {
         return EOutputFormat::GLB;
     }
+    else if (format_str == "fbx")
+    {
+        return EOutputFormat::FBX;
+    }
     else
     {
         return EOutputFormat::INVALID;

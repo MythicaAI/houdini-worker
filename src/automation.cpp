@@ -526,6 +526,73 @@ bool export_geometry_glb(MOT_Director* director, SOP_Node* sop, std::vector<char
     return true;
 }
 
+bool export_geometry_fbx(MOT_Director* director, SOP_Node* sop, std::vector<char>& file_data, StreamWriter& writer)
+{
+    rmt_ScopedCPUSample(ExportGeometryFBX, 0);
+
+    // Find the root /out network
+    OP_Network* rop = (OP_Network*)director->findNode("/out");
+    if (!rop)
+    {
+        writer.error("Failed to find rop network");
+        return false;
+    }
+
+    // Create fbx export node
+    ROP_Node* export_node = (ROP_Node*)rop->findNode("fbx_export");
+    if (!export_node)
+    {
+        export_node = (ROP_Node*)rop->createNode("filmboxfbx", "fbx_export");
+
+        if (!export_node || !export_node->runCreateScript())
+        {
+            writer.error("Failed to create fbx export node");
+            return false;
+        }
+    }
+
+    // Set the output file path and target SOP
+    UT_String sop_path;
+    sop->getFullPath(sop_path);
+
+    std::string out_path = "/tmp/export_" + std::to_string(rand()) + ".fbx";
+
+    export_node->setString(sop_path.c_str(), CH_STRING_LITERAL, "startnode", 0, 0.0f);
+    export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "sopoutput", 0, 0.0f);
+    export_node->setInt("exportkind", 0, 0.0f, 0);
+
+    // Execute the ROP for one frame
+    OP_ERROR error = export_node->execute(0.0f);
+    if (error >= UT_ERROR_ABORT)
+    {
+        writer.error("Failed to execute export");
+        return false;
+    }
+
+    // Load the exported file back into memory
+    std::ifstream file(out_path, std::ios::binary | std::ios::ate);
+    if (!file.is_open())
+    {
+        writer.error("Failed to open exported file");
+        return false;
+    }
+
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    file_data.resize(size);
+    if (!file.read(file_data.data(), size))
+    {
+        writer.error("Failed to read exported file");
+        return false;
+    }
+
+    file.close();
+    std::filesystem::remove(out_path);
+
+    return true;
+}
+
 bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node, StreamWriter& writer)
 {
     rmt_ScopedCPUSample(ExportGeometry, 0);
@@ -577,6 +644,17 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
         }
 
         writer.file("generated_model.glb", file_data);
+    }
+    else if (format == EOutputFormat::FBX)
+    {
+        std::vector<char> file_data;
+        if (!export_geometry_fbx(director, sop, file_data, writer))
+        {
+            writer.error("Failed to export fbx geometry");
+            return false;
+        }
+
+        writer.file("generated_model.fbx", file_data);
     }
     else
     {
