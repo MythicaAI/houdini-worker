@@ -749,16 +749,17 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
         if (!node->cook(context))
         {
             writer.error("Failed to cook node");
-            return false;
-        }
 
-        UT_Array<UT_Error> errors;
-        node->getRawErrors(errors, true);
-        for (const UT_Error& error : errors)
-        {
-            UT_String error_message;
-            error.getErrorMessage(error_message, UT_ERROR_NONE, true);
-            writer.error(std::string(error_message.c_str()));
+            UT_Array<UT_Error> errors;
+            node->getRawErrors(errors, true);
+            for (const UT_Error& error : errors)
+            {
+                UT_String error_message;
+                error.getErrorMessage(error_message, UT_ERROR_NONE, true);
+                writer.error(std::string(error_message.c_str()));
+            }
+
+            return false;
         }
     }
 
