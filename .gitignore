@@ -1,7 +1,105 @@
-.env
+*.env
 .idea/
 .venv/
 .vscode/
+__pycacache__/
 build/
 cmake-build*/
 scenetalk/build
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+ENV/
+env/
+*.venv
+
+# Pip and Python dependency management
+pip-log.txt
+pip-delete-this-directory.txt
+poetry.lock
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# pytest cache
+.pytest_cache/
+
+# mypy cache
+.mypy_cache/
+
+# tox environments
+.tox/
+.nox/
+
+# coverage reports
+.coverage
+*.cover
+.hypothesis/
+
+# CMake build directories
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Object files, libraries, and executables
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.sublime-workspace
+*.iml
+*.swp
+
+# Clangd
+.clangd/
+.clangd-cache/
+
+# Logs and debugging files
+*.log
+*.out
+*.err
+gmon.out
+
+# Generated files
+*.generated.*
+*.moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Qt Creator
+CMakeLists.txt.user
+*.pro.user
+*.pro.user.*
+*.

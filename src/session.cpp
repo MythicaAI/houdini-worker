@@ -1,4 +1,4 @@
-#include "houdini_session.h"
+#include "session.h"
 
 #include <MOT/MOT_Director.h>
 #include <PI/PI_ResourceManager.h>
@@ -14,4 +14,10 @@ HoudiniSession::~HoudiniSession()
 {
     OPsetDirector(nullptr);
     delete m_director;
+}
+
+ClientSession::ClientSession(bool is_admin)
+    : m_is_admin(is_admin)
+{
+
 }

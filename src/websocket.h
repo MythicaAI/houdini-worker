@@ -9,9 +9,20 @@
 #include <thread>
 #include <queue>
 
+static const int INVALID_CONNECTION_ID = -1;
+
+enum class StreamMessageType
+{
+    ConnectionOpen,
+    Message,
+    ConnectionClose
+};
+
 struct StreamMessage
 {
     int connection_id;
+    bool is_admin;
+    StreamMessageType type;
     std::string message;
 };
 
@@ -34,11 +45,11 @@ private:
 class WebSocket
 {
 public:
-    WebSocket(const std::string& url, int port);
+    WebSocket(const std::string& client_endpoint, const std::string& admin_endpoint);
     ~WebSocket();
 
     bool try_pop_request(StreamMessage& message, int timeout_ms);
-    void push_response(const StreamMessage& message);
+    void push_response(int connection_id, const std::string& message);
 
 private:
     mg_mgr m_mgr;
