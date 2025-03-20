@@ -36,9 +36,9 @@ struct FileParameter
 
 struct RampPoint
 {
-    float position;
+    float pos;
     float value[4];
-    UT_SPLINE_BASIS basis;
+    UT_SPLINE_BASIS interp;
 };
 
 using Parameter = std::variant<
