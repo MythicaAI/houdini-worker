@@ -138,7 +138,7 @@ static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, St
                 return false;
             }
 
-            for (const auto& [idx, rgba_array_value] : value->enumerate())
+            for (const auto& [idx, rgba_array_value] : color->enumerate())
             {
                 if (!rgba_array_value.isNumber())
                 {
