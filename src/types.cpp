@@ -126,19 +126,15 @@ static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, St
 
         // Value
         const UT_JSONValue* value = array_value.get("value");
-        if (!value)
-        {
-            writer.error("Ramp point missing value");
-            return false;
-        }
+        const UT_JSONValue* color = array_value.get("c");
 
-        float values[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        if (value->getType() == UT_JSONValue::JSON_ARRAY)
+        float values[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        if (color && color->getType() == UT_JSONValue::JSON_ARRAY)
         {
-            const UT_JSONValueArray* rgba_array = value->getArray();
-            if (!rgba_array || rgba_array->size() != 4)
+            const UT_JSONValueArray* rgba_array = color->getArray();
+            if (!rgba_array || rgba_array->size() != 3)
             {
-                writer.error("Ramp point array value must have 4 entries");
+                writer.error("Ramp point array value must have 3 entries");
                 return false;
             }
 
@@ -152,17 +148,17 @@ static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, St
                 values[idx] = (float)rgba_array_value.getF();
             }
         }
-        else if (value->isNumber())
+        else if (value && value->isNumber())
         {
             std::fill_n(values, 4, (float)value->getF());
         }
         else
         {
-            writer.error("Ramp point value must be float or color");
+            writer.error("Ramp point missing value or c");
             return false;
         }
 
-        // Basis
+        // Interp
         const UT_JSONValue* interp = array_value.get("interp");
         if (!interp || interp->getType() != UT_JSONValue::JSON_STRING)
         {
