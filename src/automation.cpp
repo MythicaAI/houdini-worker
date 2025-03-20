@@ -303,7 +303,7 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
             for (const auto& point : ramp_points)
             {
                 float values[4] = { point.value[0], point.value[1], point.value[2], point.value[3] };
-                ramp.addNode(point.position, values, point.basis);
+                ramp.addNode(point.pos, values, point.interp);
             }
 
             PRM_Parm* rampParm = node->getParmPtr(key.c_str());
@@ -749,16 +749,17 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
         if (!node->cook(context))
         {
             writer.error("Failed to cook node");
-            return false;
-        }
 
-        UT_Array<UT_Error> errors;
-        node->getRawErrors(errors, true);
-        for (const UT_Error& error : errors)
-        {
-            UT_String error_message;
-            error.getErrorMessage(error_message, UT_ERROR_NONE, true);
-            writer.error(std::string(error_message.c_str()));
+            UT_Array<UT_Error> errors;
+            node->getRawErrors(errors, true);
+            for (const UT_Error& error : errors)
+            {
+                UT_String error_message;
+                error.getErrorMessage(error_message, UT_ERROR_NONE, true);
+                writer.error(std::string(error_message.c_str()));
+            }
+
+            return false;
         }
     }
 

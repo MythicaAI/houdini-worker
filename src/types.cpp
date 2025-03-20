@@ -57,41 +57,41 @@ static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, St
     return true;
 }
 
-static bool parse_basis_parameter(const UT_StringHolder& string, UT_SPLINE_BASIS& basis)
+static bool parse_interp_parameter(const UT_StringHolder& string, UT_SPLINE_BASIS& interp)
 {
     if (string == "Constant")
     {
-        basis = UT_SPLINE_CONSTANT;
+        interp = UT_SPLINE_CONSTANT;
         return true;
     }
     else if (string == "Linear")
     {
-        basis = UT_SPLINE_LINEAR;
+        interp = UT_SPLINE_LINEAR;
         return true;
     }
     else if (string == "CatmullRom")
     {
-        basis = UT_SPLINE_CATMULL_ROM;
+        interp = UT_SPLINE_CATMULL_ROM;
         return true;
     }
     else if (string == "MonotoneCubic")
     {
-        basis = UT_SPLINE_MONOTONECUBIC;
+        interp = UT_SPLINE_MONOTONECUBIC;
         return true;
     }
     else if (string == "Bezier")
     {
-        basis = UT_SPLINE_BEZIER;
+        interp = UT_SPLINE_BEZIER;
         return true;
     }
     else if (string == "BSpline")
     {
-        basis = UT_SPLINE_BSPLINE;
+        interp = UT_SPLINE_BSPLINE;
         return true;
     }
     else if (string == "Hermite")
     {
-        basis = UT_SPLINE_HERMITE;
+        interp = UT_SPLINE_HERMITE;
         return true;
     }
 
@@ -117,32 +117,28 @@ static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, St
         }
 
         // Position
-        const UT_JSONValue* position = array_value.get("position");
-        if (!position || !position->isNumber())
+        const UT_JSONValue* pos = array_value.get("pos");
+        if (!pos || !pos->isNumber())
         {
-            writer.error("Ramp point missing position");
+            writer.error("Ramp point missing pos");
             return false;
         }
 
         // Value
         const UT_JSONValue* value = array_value.get("value");
-        if (!value)
-        {
-            writer.error("Ramp point missing value");
-            return false;
-        }
+        const UT_JSONValue* color = array_value.get("c");
 
-        float values[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        if (value->getType() == UT_JSONValue::JSON_ARRAY)
+        float values[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        if (color && color->getType() == UT_JSONValue::JSON_ARRAY)
         {
-            const UT_JSONValueArray* rgba_array = value->getArray();
-            if (!rgba_array || rgba_array->size() != 4)
+            const UT_JSONValueArray* rgba_array = color->getArray();
+            if (!rgba_array || rgba_array->size() != 3)
             {
-                writer.error("Ramp point array value must have 4 entries");
+                writer.error("Ramp point array value must have 3 entries");
                 return false;
             }
 
-            for (const auto& [idx, rgba_array_value] : value->enumerate())
+            for (const auto& [idx, rgba_array_value] : color->enumerate())
             {
                 if (!rgba_array_value.isNumber())
                 {
@@ -152,35 +148,35 @@ static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, St
                 values[idx] = (float)rgba_array_value.getF();
             }
         }
-        else if (value->isNumber())
+        else if (value && value->isNumber())
         {
             std::fill_n(values, 4, (float)value->getF());
         }
         else
         {
-            writer.error("Ramp point value must be float or color");
+            writer.error("Ramp point missing value or c");
             return false;
         }
 
-        // Basis
-        const UT_JSONValue* basis = array_value.get("basis");
-        if (!basis || basis->getType() != UT_JSONValue::JSON_STRING)
+        // Interp
+        const UT_JSONValue* interp = array_value.get("interp");
+        if (!interp || interp->getType() != UT_JSONValue::JSON_STRING)
         {
-            writer.error("Ramp point is missing basis");
+            writer.error("Ramp point is missing interp");
             return false;
         }
 
-        UT_SPLINE_BASIS basis_value;
-        if (!parse_basis_parameter(basis->getString(), basis_value))
+        UT_SPLINE_BASIS interp_value;
+        if (!parse_interp_parameter(interp->getString(), interp_value))
         {
-            writer.error("Ramp point has invalid basis");
+            writer.error("Ramp point has invalid interp");
             return false;
         }
 
         RampPoint point{
-            (float)position->getF(),
+            (float)pos->getF(),
             { values[0], values[1], values[2], values[3] },
-            basis_value
+            interp_value
         };
         ramp_points.push_back(point);
     }
