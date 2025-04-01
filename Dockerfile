@@ -1,12 +1,6 @@
-ARG LIBS_PYTHON_IMAGE=mythica-libs-python
+# Pull from the hbuild image to get all of the core houdini dependencies solved
 ARG HOUDINI_VERSION=20.5.370
-
-# Image for monorepo library dependencies
-FROM ${LIBS_PYTHON_IMAGE} AS libs-python-image
-
-# Gather python dependencies - do the worker deps here too.
-# this version of python should match the target version in Houdini
-FROM python:3.11-slim AS python-dependency-downloader
+FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base AS houdini-worker
 
 LABEL maintainer="jacob@mythica.ai"
 LABEL name="mythica-auto-houdini"
@@ -14,19 +8,6 @@ LABEL description="Automation for mythica gen aiservices"
 LABEL version="1.0.0"
 LABEL tier="auto"
 
-# Copy monorepo dependencies
-COPY --from=libs-python-image /libs/python /libs/python
-
-WORKDIR /python-install
-
-COPY controller/requirements.txt .
-
-# Install updated bootstrapping packages for poetry and pip
-RUN python -m pip install \
-    -r requirements.txt
-
-
-FROM aaronsmithtv/hbuild:${HOUDINI_VERSION}-base AS houdini-worker
 
 # Setup Houdini environment
 ENV SFX_CLIENT_ID=""
@@ -73,10 +54,6 @@ RUN mkdir build && cd build && \
     cmake .. && \
     cmake --build .
 
-# Copy python dependencies
-COPY --from=python-dependency-downloader /libs/python /libs/python
-COPY --from=python-dependency-downloader /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-
 # Ensure that Python looks in the copied site-packages directory
 ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages:$PYTHONPATH
 
@@ -89,6 +66,12 @@ COPY controller/ controller/
 COPY assets/ assets/
 COPY run.sh .
 RUN chmod +x run.sh
+
+# Install controller requirements
+WORKDIR /run/controller
+RUN python -m pip install -r requirements.txt
+
+WORKDIR /run
 
 # Copy the worker binary to a location in PATH so the controller can launch it.
 RUN cp /worker/build/houdini_worker .
