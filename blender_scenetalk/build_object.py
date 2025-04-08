@@ -98,7 +98,6 @@ def upsert_object_data(model_type, name, geom_data, schema):
         # fixed by the OCS being transmitted as a property of the prim
         obj.rotation_euler = (1.5708, 0, 0)  # Rotate 90 degrees around the X-axis
 
-
     # Select the object
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
