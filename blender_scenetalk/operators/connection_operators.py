@@ -54,7 +54,7 @@ class SCENETALK_OT_Reconnect(bpy.types.Operator):
             # Wait a short time before reconnecting
             def delayed_connect():
                 connect_to_server(endpoint)
-                return None  # Don't repeat
+                return None
                 
             bpy.app.timers.register(delayed_connect, first_interval=1.0)
             

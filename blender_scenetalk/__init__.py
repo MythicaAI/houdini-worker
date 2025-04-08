@@ -7,8 +7,9 @@ from .build_object import upsert_object_data
 from .scenetalk_connection import init_client
 from .async_wrap import stop_event_loop
 
-from .panels import connection_panel, hda_object_panel
+from .panels import scene_panel, hda_object_panel
 from .operators import connection_operators, hda_object_operators
+from .panels.scene_panel import refresh_connection_panel
 
 logger = logging.getLogger("extension.__init__")
 _event_queue = None
@@ -31,7 +32,7 @@ def register():
 
     connection_operators.register()
     hda_object_operators.register()
-    connection_panel.register()
+    scene_panel.register()
     hda_object_panel.register()
     
     _event_queue = asyncio.Queue()
@@ -51,8 +52,10 @@ def register():
                 logger.error("Error: %s", ev[1])
             elif event_type == "connnected":
                 logger.info("Connected to %s", ev[1])
+                refresh_connection_panel()
             elif event_type == "disconnected":
                 logger.info("Disconnected")
+                refresh_connection_panel()
             elif event_type == "error":
                 logger.error("Error: %s", ev[1])
             elif event_type == "quit":
@@ -70,7 +73,7 @@ def unregister():
     _event_queue.put_nowait(["quit"])
     stop_event_loop()
     
-    connection_panel.unregister()
+    scene_panel.unregister()
     hda_object_panel.unregister()
     hda_object_operators.unregister()
     connection_operators.unregister()

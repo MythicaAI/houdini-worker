@@ -3,6 +3,7 @@ import json
 import bpy
 import logging
 from bpy.props import PointerProperty, StringProperty
+from ..panels.update_hooks import recook
 from ..async_wrap import run_async
 from ..scenetalk_client import random_obj_name
 from ..scenetalk_connection import get_connection_state, get_client
@@ -113,44 +114,18 @@ class HDA_OT_Process(bpy.types.Operator):
     def poll(cls, context):
         # Only enable if connected and object has HDA
         obj = context.object
-        return (obj and hasattr(obj, "hda") and
-                obj.hda.enabled and
-                get_connection_state() == "connected")
-
-    def invoke(self, context, event):
-        # Ask for confirmation before processing
-        return context.window_manager.invoke_confirm(self, event)
+        is_connected = get_connection_state() == "connected"
+        return obj.get("hda_type", None) and is_connected
 
     def execute(self, context):
         obj = context.object
         hda = obj.hda
-
-        if not hda.hda_path or not os.path.exists(hda.hda_path):
-            self.report({'ERROR'}, f"HDA file not found: {hda.hda_path}")
-            return {'CANCELLED'}
-
-        # Update status
-        hda.status = "Processing..."
-
-        # This is a basic implementation - in a real addon we would:
-        # 1. Export the current object to a temporary file
-        # 2. Upload the HDA and input file
-        # 3. Process the HDA
-        # 4. Import the result
-
-        # For now, just simulate processing
-        def update_status():
-            hda.status = "Processed"
-            # Force UI refresh
-            for window in bpy.context.window_manager.windows:
-                for area in window.screen.areas:
-                    area.tag_redraw()
-            return None  # Don't repeat
-
-        # Schedule status update after a delay
-        bpy.app.timers.register(update_status, first_interval=2.0)
-
-        self.report({'INFO'}, "Processing HDA...")
+        hda_type = obj.get("hda_type", None)
+        assert hda_type is not None
+        props = get_model_props(hda, hda_type)
+        assert props is not None
+        params = props.get_params()
+        recook(obj, params)
         return {'FINISHED'}
     
 classes = (
