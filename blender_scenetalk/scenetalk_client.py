@@ -1,45 +1,71 @@
 import asyncio
 import base64
+from functools import partial
 import json
 import logging
 from random import random
 import secrets
 import string
-import time
+import sys
+import contextlib
+import os
 from typing import Dict, Any, Optional, Tuple, Callable
+from asyncio import Queue
+from .hda_db import find_by_name
+
+# Add the 'libs' folder to the Python path
+libs_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib")
+if libs_path not in sys.path:
+    sys.path.append(libs_path)
 
 import httpx
 from httpx_ws import aconnect_ws
 
-from .build_object import build_object
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("SceneTalk")
+
+logger = logging.getLogger("scenetalk_client")
 
 
-def process_response(response: Any) -> bool:
-    """Generic SceneTalk response processor"""
-    if response["op"] == "geometry":
-        rand_str = ''.join(secrets.choice(string.ascii_lowercase) for i in range(10))
-        obj_name = f"obj_{rand_str}"
-        build_object(response, obj_name)
-        return True
-    completed = response["op"] == "automation" and \
-        response["data"] == "end"
-    return completed
+def random_obj_name() -> str:
+    """Generate a random object name."""
+    rand_str = ''.join(secrets.choice(string.ascii_lowercase) for i in range(10))
+    obj_name = f"obj_{rand_str}"
+    return obj_name
 
 
 class SceneTalkClient:
     """Minimal client for communicating with Houdini via WebSocket."""
 
-    def __init__(self, host: str = "localhost", port: int = 8765):
+    def __init__(self, event_queue: Queue, host: str = "localhost", port: int = 8765):
+        self.event_queue = event_queue
         self.ws_url = f"ws://{host}:{port}"
         self.client = None
         self.websocket = None
-        self.connected = False
-        self.callbacks = {}
+        self.async_stack = None
+        self.connection_state = "disconnected"
         self._task = None
+        # TODO: migrate to request context
+        self.current_object_schema = None
+        self.current_object_name = None
+        self.current_model_type = None
+
+    async def process_response(self, response: Any) -> bool:
+        """Generic SceneTalk response processor"""
+        op_type = response['op']
+        logger.info(f"process_response: {op_type}")
+        if op_type == "error":
+            await self.event_queue.put(("error", response["data"]))
+        elif op_type == "geometry":
+            # TODO - decide on model or schema or job def language
+            await self.event_queue.put(("geometry",
+                                        self.current_model_type,
+                                        self.current_object_name or random_obj_name(),
+                                        response,
+                                        self.current_object_schema))
+        completed = op_type == "automation" and \
+            response["data"] == "end"
+        return completed
 
     async def connect(self) -> bool:
         """Connect to the SceneTalk WebSocket server."""
@@ -52,8 +78,13 @@ class SceneTalkClient:
                 http2=False,
             )
 
-            # Start message listener
-            self._task = asyncio.create_task(self._message_handler())
+            # create the websocket connection object, it has to be wrapped
+            # in an async stack to handle the async generator
+            self.async_stack = contextlib.AsyncExitStack()
+            self.websocket = await self.async_stack.enter_async_context(
+                aconnect_ws(self.ws_url, self.client))   
+            self.connection_state = "connected"
+            await self.event_queue.put(["connected", self.ws_url])
             return True
         
         except httpx.ConnectError as e:
@@ -67,7 +98,7 @@ class SceneTalkClient:
 
     async def disconnect(self):
         """Disconnect from the WebSocket server."""
-        self.connected = False
+        self.connection_state = "diconnecting"
 
         if self._task:
             self._task.cancel()
@@ -77,70 +108,86 @@ class SceneTalkClient:
             await self.websocket.close()
             self.websocket = None
 
+        if self.async_stack:
+            await self.async_stack.aclose()
+            self.async_stack = None
+
         if self.client:
             await self.client.aclose()
             self.client = None
 
-        logger.info("Disconnected")
+        self.connection_state = "disconnected"
+        await self.event_queue.put(["disconnected"])
 
-        if "on_disconnect" in self.callbacks:
-            self.callbacks["on_disconnect"]()
+    async def send_cook(self, model_type, obj_name, params):
+        """Send a cook message to the server."""
+        schema = find_by_name(model_type)
+        assert schema is not None
+        self.current_model_type = model_type
+        self.current_object_schema = schema
+        if not self.websocket or self.connection_state != "connected":
+            logger.error("Cannot send message: not connected")
+            return False
+        try:
+            self.current_object_name = obj_name
+            msg = {   
+                "op": "cook",
+                "data": {
+                    "hda_path": {
+                        "file_id": "file_local_hda",
+                        "file_path": self.current_object_schema['file_path']
+                    },
+                    "definition_index": 0,
+                    "format": "raw",
+                    **params  # Unpack all parameters
+                }
+            }
+            json_message = json.dumps(msg)
+            await self.websocket.send_text(json_message)
+            while True:
+                try:
+                    message = await asyncio.wait_for(
+                        self.websocket.receive_text(),
+                        timeout=30
+                    )
+                    response_data = json.loads(message)
+                    completed = await self.process_response(response_data)
+                    if completed:
+                        logger.info("Cook completed")
+                        return True
+                except asyncio.TimeoutError:
+                    logger.error("Read timeout while waiting for data")
+            return False
+        except httpx.WriteError as e:
+            logger.error(f"Error sending message: {e}")
+            return False
 
-    def set_callbacks(self, callbacks: Dict[str, Callable]):
-        """Set event callbacks."""
-        self.callbacks = callbacks
-    
-    async def _test_crytals(self):
-        crystals_param_schema = {
-            "file_path": "assets/mythica.crystal.1.0.hda",
-            "material_name": "crystal",
-            "parameters": {
-            "length": {
-                "type": "slider",
-                "label": "Length",
-                "min": 0.5,
-                "max": 5,
-                "step": 0.1,
-                "default": 2.5,
-            },
-            "radius": {
-                "type": "slider",
-                "label": "Radius",
-                "min": 0.1,
-                "max": 2,
-                "step": 0.1,
-                "default": 0.6,
-            },
-            "numsides": {
-                "type": "slider",
-                "label": "Sides",
-                "min": 3,
-                "max": 12,
-                "step": 1,
-                "default": 6,
-            },
-            },
-        }
+    async def create_model(self, model_type: str, obj_name: str):
+        self.current_object_schema = find_by_name(model_type)
+        assert self.current_object_schema is not None
+        self.current_object_name = obj_name
+        self.current_model_type = model_type
 
         # Extract parameters into a dictionary mapping label -> default value
-        params = {param["label"]: param["default"] for param in crystals_param_schema["parameters"].values()}
+        params = {param_id: param["default"]
+                  for param_id, param in self.current_object_schema["parameters"].items()}
 
         cook_message = {
             "op": "cook",
             "data": {
             "hda_path": {
-                "file_id": "file_xxx",
-                "file_path": crystals_param_schema['file_path']
+                "file_id": "file_local_hda",
+                "file_path": self.current_object_schema['file_path']
             },
             "definition_index": 0,
             "format": "raw",
             **params  # Unpack all parameters
             }
         }
-
         
-        await self.send_message(cook_message, process_response)
-        logger.info("HDA cooked")
+        await self.send_message(cook_message)
+
+        logger.info("Cooked [%s] %s", model_type, obj_name)
 
     async def _test_cube(self):
         # Upload HDA file
@@ -160,7 +207,7 @@ class SceneTalkClient:
             }
         }
         logger.info("Uploading HDA file")
-        success = await self.send_message(upload_message, process_response)
+        success = await self.send_message(upload_message)
         assert success
         logger.info("HDA file uploaded")
 
@@ -181,7 +228,7 @@ class SceneTalkClient:
             }
         }
         logger.info("Uploading USDZ file")
-        success = await self.send_message(upload_message, process_response)
+        success = await self.send_message(upload_message)
         assert success
         logger.info("USDZ file uploaded")
 
@@ -204,59 +251,13 @@ class SceneTalkClient:
                 "test_bool": True,
             }
         }
-        await self.send_message(test_message, process_response)
+        await self.send_message(test_message)
         logger.info("HDA cooked")
-        
-    async def _message_handler(self):
-        """Handle incoming WebSocket messages."""
-        try:    
-            async with aconnect_ws(self.ws_url, self.client) as ws:
-                self.websocket = ws
-                self.connected = True
-                logger.info("Connected to %s", self.ws_url)
-                if "on_connect" in self.callbacks:
-                    self.callbacks["on_connect"]()
-                await self._test_crytals()
-                # await self._test_cube()
-
-        except httpx.ReadError as e:
-            logger.error(f"WebSocket read error: {e}")
-            if "on_error" in self.callbacks:
-                self.callbacks["on_error"](str(e))
-        except asyncio.CancelledError:
-            logger.info("Message handler cancelled")
-            pass
-        except Exception as e:
-            logger.error(f"WebSocket error: {e}")
-            if "on_error" in self.callbacks:
-                self.callbacks["on_error"](str(e))
-        finally:
-            logger.info("Message handler disconnected")
-            self.connected = False
-            if "on_disconnect" in self.callbacks:
-                self.callbacks["on_disconnect"]()
-
-    def _process_message(self, data: Dict[str, Any]):
-        """Process a message based on its operation type."""
-        op_type = data.get("op")
-
-        # Log the message type
-        logger.debug(f"Received {op_type} message")
-
-        # Dispatch to specific handler if available
-        handler_name = f"on_{op_type}"
-        if handler_name in self.callbacks:
-            self.callbacks[handler_name](data.get("data"))
-
-        # Also dispatch to the general message handler if available
-        if "on_message" in self.callbacks:
-            self.callbacks["on_message"](data)
 
     async def send_message(self, 
-                           message: Dict[str, Any],
-                           process_response: Callable[[Any], bool]) -> bool:
+                           message: Dict[str, Any]) -> bool:
         """Send a message to the server."""
-        if not self.websocket or not self.connected:
+        if not self.websocket or self.connection_state != "connected":
             logger.error("Cannot send message: not connected")
             return False
         try:
@@ -268,18 +269,14 @@ class SceneTalkClient:
                         timeout=30
                     )
                     response_data = json.loads(message)
-                    logger.info("Received response: %s", response_data)
-                    completed = process_response(response_data)
+                    completed = await self.process_response(response_data)
                     if completed:
                         return True
                 except asyncio.TimeoutError:
                     logger.error("Read timeout while waiting for data")
             return False
-        except httpx.WriteError as e:
+        except (httpx.WriteError, httpx.LocalProtocolError) as e:
             logger.error(f"Error sending message: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Send failed: {e}")
             return False
 
     async def upload_file(self, file_id: str, file_path: str, content_type: str = "application/octet-stream") -> bool:

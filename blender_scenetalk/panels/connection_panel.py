@@ -1,15 +1,18 @@
 import bpy
-import asyncio
-import threading
-from bpy.props import StringProperty, BoolProperty
+import logging
+from bpy.props import StringProperty, BoolProperty, EnumProperty
+from bpy.app.handlers import persistent
 
 # Import the SceneTalk client
 from ..scenetalk_client import SceneTalkClient
-from ..scenetalk_connection import get_client, set_connection_state, get_connection_state, connect_to_server, disconnect_from_server
+from ..scenetalk_connection import get_connection_state, connect_to_server, disconnect_from_server
 
+from . import models
+
+logger = logging.getLogger("connection_panel")
 
 # Connection properties
-class SceneTalkConnectionProperties(bpy.types.PropertyGroup):
+class SceneTalkProperties(bpy.types.PropertyGroup):
     """Connection properties for SceneTalk integration."""
     endpoint: StringProperty(
         name="Server Endpoint",
@@ -21,6 +24,14 @@ class SceneTalkConnectionProperties(bpy.types.PropertyGroup):
         name="Auto Connect",
         description="Automatically connect on startup",
         default=False
+    )
+
+    # for creating models
+    model_type: EnumProperty(
+        name="Type",
+        description="Select model type to generate",
+        items=models.get_model_item_enum(),
+        default='CRYSTALS',
     )
 
 # Connection Panel
@@ -67,42 +78,67 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         if state == "connected":
             row.operator("scenetalk.disconnect", text="Disconnect", icon='CANCEL')
         else:
-            connect_op = row.operator("scenetalk.connect", text="Connect", icon='PLAY')
+            row.operator("scenetalk.connect", text="Connect", icon='PLAY')
             
         
         # Reconnect button - always visible but only enabled if not connected
         row = box.row()
-        reconnect_op = row.operator("scenetalk.reconnect", text="Reconnect", icon='FILE_REFRESH')
-        reconnect_op.enabled = (state != "connecting" and state != "disconnecting")
+        row.operator("scenetalk.reconnect", text="Reconnect", icon='FILE_REFRESH')
         
         # Auto-connect toggle
         row = box.row()
         row.prop(connection_props, "auto_connect")
 
+        # Show connected controls
+        if state != "connected":
+            return
+        
+        box = layout.box()
+        row = box.row()
+        row.prop(connection_props, "model_type")
+
+        row = box.row()
+        row.operator("hda.create_model", text="Create Model")
+        row.operator("hda.init_params", text="Set Model")
+        
 
 # Auto-connect on startup
 @bpy.app.handlers.persistent
 def connect_on_startup(dummy):
     # Check if auto-connect is enabled
     if bpy.context.scene.scenetalk_connection.auto_connect:
+        logger.info("Auto-connecting to SceneTalk server...")
         endpoint = bpy.context.scene.scenetalk_connection.endpoint
         connect_to_server(endpoint)
 
 # Registration
 classes = (
-    SceneTalkConnectionProperties,
+    SceneTalkProperties,
     SCENETALK_PT_ConnectionPanel,
 )
+
+# Define update callback for selection changes
+@persistent
+def selection_change_callback(scene):
+    # Force redraw of UI
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            area.tag_redraw()
+
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     
     # Register connection properties
-    bpy.types.Scene.scenetalk_props = bpy.props.PointerProperty(type=SceneTalkConnectionProperties)
+    bpy.types.Scene.scenetalk_props = bpy.props.PointerProperty(type=SceneTalkProperties)
     
     # Register startup handler
     bpy.app.handlers.load_post.append(connect_on_startup)
+
+    # Register selection change handler
+    bpy.app.handlers.depsgraph_update_post.append(selection_change_callback)
+
 
 def unregister():
     # Ensure disconnection
@@ -112,6 +148,11 @@ def unregister():
     # Remove startup handler
     if connect_on_startup in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(connect_on_startup)
+
+    # Remove selection change handler
+    if selection_change_callback in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(selection_change_callback)
+
     
     # Unregister classes
     for cls in reversed(classes):

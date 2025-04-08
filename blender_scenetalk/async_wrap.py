@@ -35,6 +35,16 @@ def ensure_event_loop_running():
         
         return _loop
 
+def stop_event_loop():
+    """Stop the global event loop."""
+    global _loop, _thread, _running
+    with _lock:
+        if _running:
+            _running = False
+            _loop.call_soon_threadsafe(_loop.stop)
+            _thread.join()
+
+
 def run_async(coro, timeout=None):
     """
     Run an async coroutine from synchronous code and return the result.
