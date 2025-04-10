@@ -17,7 +17,7 @@ WORKER_PIDS=()
 for ((i=0; i<$NUM_WORKERS; i++)); do
     CLIENT_PORT=$((BASE_CLIENT_PORT + i))
     ADMIN_PORT=$((BASE_ADMIN_PORT + i))
-    python3.11 /run/controller/main.py --worker /run/houdini_worker --clientport $CLIENT_PORT --adminport $ADMIN_PORT &
+    . /run/controller/.venv/bin/activate && python /run/controller/main.py --worker /run/houdini_worker --clientport $CLIENT_PORT --adminport $ADMIN_PORT &
     WORKER_PIDS+=($!)
     echo "Started worker on ports client=$CLIENT_PORT admin=$ADMIN_PORT with PID ${WORKER_PIDS[-1]}"
 done

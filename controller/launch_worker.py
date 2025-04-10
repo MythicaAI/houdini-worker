@@ -21,9 +21,6 @@ async def launch_worker(worker_cmd, admin_ws_endpoint, resolve_queue, response_q
     # Start the Houdini-Worker as an asynchronous subprocess.
     process = await asyncio.create_subprocess_exec(*worker_cmd)
 
-    # Give the worker process time to start and bind to ports
-    await asyncio.sleep(5)
-
     # Connect to the process
     ws_client_task = asyncio.create_task(websocket_client(admin_ws_endpoint, resolve_queue, response_queue))
 

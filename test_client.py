@@ -52,8 +52,15 @@ class HoudiniWorker:
     async def _disconnect(self):
         if self.websocket:
             await self.stack.aclose()
+            self.websocket = None
+
+        if self.async_stack:
+            await self.async_stack.aclose()
+            self.async_stack = None
+
         if self.client:
             await self.client.aclose()
+            self.client = None
 
     async def send_message(self,
                            data: Any,
