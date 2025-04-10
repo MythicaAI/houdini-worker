@@ -198,7 +198,7 @@ def recook_internal(obj, params):
     object_inputs = []
     file_inputs = [(name, param['file_type']) for name, param in default_params.items() \
                    if param.get('file_type', None)]
-    assert len(file_inputs) == 1  # TODO: support multiple file inputs
+    assert len(file_inputs) < 2  # TODO: support multiple file inputs
     if len(inputs) > 0 and len(file_inputs) > 0:
         for i in inputs:
             if i.input_ref is None:

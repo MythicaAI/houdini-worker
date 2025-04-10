@@ -1,4 +1,5 @@
 *.env
+*.zip
 .idea/
 .venv/
 .vscode/
