@@ -42,6 +42,12 @@ class SceneTalkProperties(bpy.types.PropertyGroup):
         default='CRYSTALS',
     )
 
+    export_directory: bpy.props.StringProperty(
+        name="Export Directory",
+        description="Directory to save temporary export files",
+        subtype='DIR_PATH'
+    )
+
 # Connection Panel
 class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
     """SceneTalk Connection Panel"""
@@ -101,6 +107,12 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
             row = box.row()
             row.prop(props, "auto_connect")
 
+            # Export directory
+            row = box.row()
+            row.label(text="Export Directory:")
+            row = box.row()
+            row.prop(props, "export_directory", text="")
+
         # Show connected controls
         if state != "connected":
             return
@@ -110,13 +122,13 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         row.prop(props, "model_type")
 
         row = box.row()
-        row.operator("hda.create_model", text="Create Model")
-        row.operator("hda.init_params", text="Set Model")
+        row.operator("hda.create_model", text="Create Object")
+        op = row.operator("hda.create_model", text="Track Object")
+        op.track_inputs = True
 
-    
         # Get the active object
         active_object = context.active_object
-        if not active_object.select_get():
+        if active_object and not active_object.select_get():
             active_object = None
     
         # Count the number of selected objects
@@ -138,21 +150,30 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
             return
         
         hda_type = selected.get('hda_type', None)
+        if hda_type is None:
+            return
+        
         all_matching_type = all(obj.get("hda_type", None) == hda_type for obj in context.selected_objects)
 
-        if all_matching_type:
+        # TODO overlap properties?
+        if not all_matching_type:
             row = box.row()
-            row.label(text=hda_type)
-
-        else:
-            row = box.row()
-            row.label(text="various model types")
+            row.label(text="various types")
             return
+        
+        # Reset/init button
+        row = box.row()
+        row.scale_y = 1.5  # Make button bigger
+        row.operator("hda.init_params", text="Reset", icon='FILE_REFRESH')
+
+        # Process button
+        row.scale_y = 1.5  # Make button bigger
+        row.operator("hda.process", text="Cook", icon='MOD_HUE_SATURATION')
 
         # Show properties based on selected model type
         hda = selected.hda
         props = models.get_model_props(hda, hda_type)
-        box.label(text=hda_type + " Parameters:")
+        box.label(text=hda_type + ":")
         if props:
             props.draw(box)
 
@@ -161,6 +182,20 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         box.label(text="HDA File", icon='FILE_BLEND')
         row = box.row()
         row.prop(hda, "hda_path", text="")
+
+        # List of inputs
+        box = layout.box()
+        for input in hda.inputs:
+            row = box.row()
+            row.prop(input, "input_ref", text="")
+            
+
+            row.prop(input, "input_type", text="")
+            row.prop(input, "enabled")
+
+        row = box.row()
+        row.operator("hda.add_input", text="Add", icon='ADD')
+        row.operator("hda.remove_input", text="Remove", icon='REMOVE')
 
         # Status information
         box = layout.box()
@@ -174,31 +209,6 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
             status_row.label(text="Cooked", icon='CHECKMARK')
         else:
             status_row.label(text=f"Status: {hda.status}", icon='INFO')
-    
-        schema = find_by_name(hda_type)
-        if schema:
-            pass
-
-        # Parameters
-        layout.separator()
-        layout.label(text="Parameters:")
-
-        # Here's where the dynamic UI happens
-        # TODO: code gen the models and dynamically register/unregister them
-        # call the draw method, this is required because, step size, min, max
-        # and update can only be set during registration
-        # param: HDAParameter = None
-        # for param in list(hda.hda_params):
-        #     param.draw(layout)
-
-        # Init button
-        row = layout.row()
-        row.scale_y = 1.5  # Make button bigger
-        row.operator("hda.init_params", text="Reset", icon='FILE_REFRESH')
-
-        # Process button
-        row.scale_y = 1.5  # Make button bigger
-        row.operator("hda.process", text="Cook", icon='MOD_HUE_SATURATION')
         
         
 

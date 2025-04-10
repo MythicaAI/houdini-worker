@@ -46,8 +46,10 @@ def register():
                 continue
             event_type = ev[0]
             if event_type == "geometry":
-                model_type, obj_name, geometry, schema = ev[1], ev[2], ev[3], ev[4]
-                upsert_object_data(model_type, obj_name, geometry, schema)
+                model_type, obj_name, input_objects, geometry, schema = ev[1], ev[2], ev[3], ev[4], ev[5]
+                upsert_object_data(model_type, obj_name, input_objects, geometry, schema)
+            elif event_type == "status":
+                logger.info("Status: %s", ev[1])
             elif event_type == "error":
                 logger.error("Error: %s", ev[1])
             elif event_type == "connnected":

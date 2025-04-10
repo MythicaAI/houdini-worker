@@ -25,7 +25,7 @@ PROP_TYPE_MAP = {
 def get_object_by_name(name):
     return bpy.data.objects.get(name)
 
-def upsert_object_data(model_type, name, geom_data, schema):
+def upsert_object_data(model_type, name, inputs, geom_data, schema):
     # Create a new mesh and bmesh
     obj = get_object_by_name(name)
     is_update = False
@@ -65,7 +65,7 @@ def upsert_object_data(model_type, name, geom_data, schema):
             print(f"Error creating face {i//3}: {e}")
     
     # Set vertex colors if the mesh has faces
-    total_verts = 0
+    total_verts = len(bm.faces)
     if bm.faces and colors:
         color_layer = bm.loops.layers.color.new("Col")
         for face in bm.faces:
@@ -79,7 +79,6 @@ def upsert_object_data(model_type, name, geom_data, schema):
                         colors[color_idx + 2],
                         1.0  # Alpha
                     )
-                total_verts += vert_idx
     # Update and free bmesh
     bm.to_mesh(mesh)
     bm.free()
@@ -100,6 +99,7 @@ def upsert_object_data(model_type, name, geom_data, schema):
 
     # Mark as an HDA
     obj["hda_type"] = hda_type
+    obj["hda_inputs"] = str(inputs)
 
     # Store the generator schema
     obj.hda.set_from_schema(schema)

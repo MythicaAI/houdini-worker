@@ -45,22 +45,12 @@ def stop_event_loop():
             _thread.join()
 
 
-def run_async(coro, timeout=None):
+def run_async_bg(coro):
     """
-    Run an async coroutine from synchronous code and return the result.
+    Run an async coroutine from synchronous code without waiting for the result.
     
     Args:
         coro: The coroutine to run
-        timeout: Optional timeout in seconds
-        
-    Returns:
-        The result of the coroutine
     """
     loop = ensure_event_loop_running()
-    future = asyncio.run_coroutine_threadsafe(coro, loop)
-    
-    try:
-        return future.result(timeout=timeout)
-    except concurrent.futures.TimeoutError:
-        future.cancel()
-        raise TimeoutError(f"Operation timed out after {timeout} seconds")
+    return asyncio.run_coroutine_threadsafe(coro, loop)

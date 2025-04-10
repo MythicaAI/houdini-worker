@@ -254,7 +254,7 @@ static void set_inputs(OP_Node* node, const std::map<int, FileParameter>& inputs
                 continue;
             }
         }
-
+        writer.status("Adding input " + file.file_path + " to node " + node->getName().c_str() + " at index " + std::to_string(index));
         node->setInput(index, input_node);
     }
 }

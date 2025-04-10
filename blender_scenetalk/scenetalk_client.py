@@ -19,7 +19,7 @@ if libs_path not in sys.path:
     sys.path.append(libs_path)
 
 import httpx
-from httpx_ws import aconnect_ws
+from httpx_ws import WebSocketNetworkError, aconnect_ws
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,10 +27,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("scenetalk_client")
 
 
-def random_obj_name() -> str:
+def random_obj_name(model_type) -> str:
     """Generate a random object name."""
     rand_str = ''.join(secrets.choice(string.ascii_lowercase) for i in range(10))
-    obj_name = f"obj_{rand_str}"
+    obj_name = f"{model_type.upper()}_{rand_str}"
     return obj_name
 
 
@@ -49,11 +49,12 @@ class SceneTalkClient:
         self.current_object_schema = None
         self.current_object_name = None
         self.current_model_type = None
+        self.current_inputs = []
 
     async def process_response(self, response: Any) -> bool:
         """Generic SceneTalk response processor"""
         op_type = response['op']
-        logger.info(f"process_response: {op_type}")
+        # logger.info(f"process_response: {op_type}")
         if op_type == "error":
             await self.event_queue.put(("error", response["data"]))
         elif op_type == "geometry":
@@ -61,15 +62,16 @@ class SceneTalkClient:
             await self.event_queue.put(("geometry",
                                         self.current_model_type,
                                         self.current_object_name or random_obj_name(),
+                                        self.current_inputs,
                                         response,
                                         self.current_object_schema))
         completed = op_type == "automation" and \
             response["data"] == "end"
         return completed
 
-    async def connect(self) -> bool:
+    async def connect(self, endpoint) -> bool:
         """Connect to the SceneTalk WebSocket server."""
-        logger.info(f"Connecting to {self.ws_url}")
+        logger.info(f"Connecting to {endpoint}")
         try:
             self.client = httpx.AsyncClient(
                 base_url=self.ws_url,
@@ -84,6 +86,7 @@ class SceneTalkClient:
             self.websocket = await self.async_stack.enter_async_context(
                 aconnect_ws(self.ws_url, self.client))   
             self.connection_state = "connected"
+            self.ws_url = endpoint
             await self.event_queue.put(["connected", self.ws_url])
             return True
         
@@ -119,12 +122,14 @@ class SceneTalkClient:
         self.connection_state = "disconnected"
         await self.event_queue.put(["disconnected"])
 
-    async def send_cook(self, model_type, obj_name, params):
+    async def send_cook(self, model_type, obj_name, object_inputs, params):
         """Send a cook message to the server."""
         schema = find_by_name(model_type)
         assert schema is not None
         self.current_model_type = model_type
         self.current_object_schema = schema
+        self.current_inputs = object_inputs
+        
         if not self.websocket or self.connection_state != "connected":
             logger.error("Cannot send message: not connected")
             return False
@@ -157,37 +162,14 @@ class SceneTalkClient:
                         return True
                 except asyncio.TimeoutError:
                     logger.error("Read timeout while waiting for data")
+                except WebSocketNetworkError:
+                    logger.exception(f"WebSocket error")
+                    await self.disconnect()
+                    return False
             return False
         except httpx.WriteError as e:
             logger.error(f"Error sending message: {e}")
-            return False
-
-    async def create_model(self, model_type: str, obj_name: str):
-        self.current_object_schema = find_by_name(model_type)
-        assert self.current_object_schema is not None
-        self.current_object_name = obj_name
-        self.current_model_type = model_type
-
-        # Extract parameters into a dictionary mapping label -> default value
-        params = {param_id: param["default"]
-                  for param_id, param in self.current_object_schema["parameters"].items()}
-
-        cook_message = {
-            "op": "cook",
-            "data": {
-            "hda_path": {
-                "file_id": "file_local_hda",
-                "file_path": self.current_object_schema['file_path']
-            },
-            "definition_index": 0,
-            "format": "raw",
-            **params  # Unpack all parameters
-            }
-        }
-        
-        await self.send_message(cook_message)
-
-        logger.info("Cooked [%s] %s", model_type, obj_name)
+            return False 
 
     async def _test_cube(self):
         # Upload HDA file

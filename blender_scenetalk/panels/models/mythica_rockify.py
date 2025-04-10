@@ -4,7 +4,7 @@ from ..update_hooks import update_float_value, update_int_value, update_bool_val
 
 
 class RockifyProperties(bpy.types.PropertyGroup):
-    stage: IntProperty(
+    Stage: IntProperty(
         name="Stage",
         description="Processing stage",
         min=0,
@@ -64,14 +64,14 @@ class RockifyProperties(bpy.types.PropertyGroup):
 
     def draw(self, layout):
         col = layout.column(align=True)
-        col.prop(self, "stage")
+        col.prop(self, "Stage")
         col.prop(self, "base_rangemax")
         col.prop(self, "mid_rangemax")
         col.prop(self, "top_rangemax")
 
     def get_params(self):
         return {
-            "stage": self.stage,
+            "Stage": self.Stage,
             "base_rangemax": self.base_rangemax,
             "mid_rangemax": self.mid_rangemax,
             "top_rangemax": self.top_rangemax,

@@ -122,6 +122,7 @@ built_in_hdas = {
             },
             "input0": {
                 "type": "hidden",
+                "file_type": 'usd',
                 "default": {
                     "file_id": "file_xxx",
                     "file_path": "assets/SM_Shape_04_a.usd",
