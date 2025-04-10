@@ -74,7 +74,7 @@ class SceneTalkClient:
         logger.info(f"Connecting to {endpoint}")
         try:
             self.client = httpx.AsyncClient(
-                base_url=self.ws_url,
+                base_url=endpoint,
                 timeout=5,
                 limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
                 http2=False,
