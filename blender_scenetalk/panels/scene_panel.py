@@ -19,7 +19,7 @@ class SceneTalkProperties(bpy.types.PropertyGroup):
     endpoint: StringProperty(
         name="Server Endpoint",
         description="SceneTalk server endpoint in the format ws://hostname:port",
-        default="ws://localhost:8765"
+        default="wss://scenetalk.mythica.gg/ws"
     )
     
     auto_connect: BoolProperty(
