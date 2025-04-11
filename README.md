@@ -25,7 +25,8 @@ Build the image
 
 `docker build . -t houdini_hdk`
 
-Run the image with the port open:
+Run the image
+
 `docker run -it --rm --env-file testing.env -p 8765:8765 houdini_hdk`
 
 Open test_client.html to test the web client
