@@ -1,26 +1,20 @@
 import json
 import bpy
-import logging
-from bpy.props import (
-    FloatProperty, IntProperty, StringProperty, BoolProperty,
-    PointerProperty, EnumProperty, CollectionProperty
-)
 from bpy.types import PropertyGroup
-from ..hda_db import find_by_name
-from ..scenetalk_connection import get_connection_state
+from bpy.props import (PointerProperty, CollectionProperty, StringProperty, EnumProperty, BoolProperty)
+from .models import get_model_props
+from .models import CrystalsProperties, RocksProperties, AgaveProperties, SaguaroProperties, RockifyProperties
+from ..cook import cook
+from ..model_db import find_by_name
 from . import models
-from .models import get_model_props, CrystalsProperties, RocksProperties, AgaveProperties, SaguaroProperties, RockifyProperties
-from .update_hooks import recook, update_float_value, update_int_value, update_bool_value, update_string_value
-
-logger = logging.getLogger("hda_object_panel")
-
+from ..cook import cook
 
 def update_model_type(self, context):
     """Update the model type and refresh the UI"""
     obj = context.object
-    obj['hda_type'] = self.model_type
-    hda = getattr(obj, "hda", None)
-    if not hda:
+    obj['model_type'] = self.model_type
+    gen = getattr(obj, "gen", None)
+    if not gen:
         return
 
     schema = find_by_name(self.model_type)
@@ -29,12 +23,12 @@ def update_model_type(self, context):
         return
     
     # Refresh the UI
-    hda.set_from_schema(schema)
+    gen.set_from_schema(schema)
     context.area.tag_redraw()
+    props = get_model_props(gen, self.model_type)
+    cook(context.object, props.get_params())
 
-    recook(context.object, hda.get_params())
-
-class HDAInputRef(PropertyGroup):
+class GenInputRef(PropertyGroup):
     input_ref: PointerProperty(
         type=bpy.types.Object,
         name="Input",
@@ -76,38 +70,45 @@ def validate_inputs(inputs):
     # Return statistics about cleanup
     return len(to_remove)
 
-def inputs_updated(inputs):
-    validate_inputs(inputs)
-    
 
-
-# HDA Property Group - this will be attached to Blender objects
-class HDAProperties(PropertyGroup):
+# Model generation properties
+class GenProperties(PropertyGroup):
     """HDA properties that can be attached to Blender objects."""
 
     enabled: BoolProperty(
         name="Enabled",
-        description="Whether this HDA is enabled",
+        description="Whether generator is enabled",
         default=True
     )
 
-    hda_id: StringProperty(
-        name="HDA ID",
-        description="ID of the HDA to use",
+    name: StringProperty(
+        name="Name",
+        description="Name of the generator",
         default=""
     )
 
-    hda_path: StringProperty(
-        name="HDA Path",
-        description="Path to the HDA file",
+    package_id: StringProperty(
+        name="Package ID",
+        description="Package ID to reference",
+        default=""
+    )
+
+    file_name: StringProperty(
+        name="File in package to use",
+        description="File to reference",
+        default=""
+    )
+
+    entry_point: StringProperty(
+        name="Entry point",
+        description="Entry point in file to use for generation",
         default="",
-        subtype='FILE_PATH'
     )
 
-    hda_name: StringProperty(
-        name="HDA Name",
-        description="Name of the HDA",
-        default=""
+    status: StringProperty(
+        name="Status",
+        description="Processing status",
+        default="intialized"
     )
 
     material_name: StringProperty(
@@ -116,23 +117,17 @@ class HDAProperties(PropertyGroup):
         default=""
     )
 
-    status: StringProperty(
-        name="Status",
-        description="Processing status",
-        default="Not processed"
-    )
-
     # Blender 4.2 supports asset preview - add this for future expansion
     asset_preview: StringProperty(
         name="Asset Preview",
-        description="Path to the preview image for this HDA",
+        description="Path to the preview image",
         default="",
         subtype='FILE_PATH'
     )
 
     # Store parameters as a JSON string for simplicity
     # This is a limitation of Blender's property system with nested collections
-    hda_params_json: StringProperty(name="Parameters JSON")
+    params_json: StringProperty(name="Parameters JSON")
 
     model_type: EnumProperty(
         name="Model Type",
@@ -148,77 +143,39 @@ class HDAProperties(PropertyGroup):
     saguaro_props: PointerProperty(type=SaguaroProperties)
     rockify_props: PointerProperty(type=RockifyProperties)
 
-    inputs: CollectionProperty(type=HDAInputRef)
+    inputs: CollectionProperty(type=GenInputRef)
     
     def set_from_schema(self, schema):
 
         """Initialize from schema data"""
-        self.hda_id = "file_xxx"
-        self.hda_name = "file_xxx".capitalize()
-        self.hda_path = schema.get("file_path", "")
+        self.name = 'internal'
+        self.package_id = "file_package_internal"
+        self.entry_point = "default"
+        self.file_name = schema.get("file_path", "")
         self.material_name = schema.get("material_name", "")
         
         # Store parameter data as JSON
         params = schema.get("parameters", {})
-        self.hda_params_json = json.dumps(params)
-
-            
-class HDA_PT_Panel(bpy.types.Panel):
-    """HDA Panel in Object Properties"""
-    bl_label = "SceneTalk PCG Asset"
-    bl_idname = "HDA_PT_Panel"
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "object"
-    bl_options = {'DEFAULT_CLOSED'}  # Collapsed by default
-
-    @classmethod
-    def poll(cls, context):
-        show = context.object and context.object.get('hda_type', None)
-        return show
-    
-    def draw_header(self, context):
-        layout = self.layout
-        obj = context.object
-        if hasattr(obj, "hda"):
-            layout.prop(obj.hda, "enabled", text="")
-
-    def draw(self, context):
-        obj = context.object
-        hda_type = obj.get('hda_type', None)
-        if not hda_type:
-            return
-
-        layout = self.layout
-        layout.use_property_split = True  # Blender 4.2 style
-        layout.use_property_decorate = False  # No animation
-
-        # Connection status and controls
-        box = layout.box()
-
-        row = box.row()
-
-        
-        
-
+        self.params_json = json.dumps(params)
 
 classes = (
-    HDAInputRef,
-    HDAProperties,
-    HDA_PT_Panel,
+    GenInputRef,
+    GenProperties,
 )
 
 def register():
+        # Register all model properties
     models.register_all_models()
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.Object.hda = PointerProperty(type=HDAProperties)
-    
+
+    bpy.types.Object.gen = PointerProperty(type=GenProperties)
 
 def unregister():
-    for cls in reversed(classes):
+    for cls in classes:
         bpy.utils.unregister_class(cls)
+
     models.unregister_all_models()
 
     # Remove the property group
-    del bpy.types.Object.hda
+    del bpy.types.Object.gen

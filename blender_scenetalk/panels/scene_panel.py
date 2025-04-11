@@ -7,46 +7,12 @@ from bpy.app.handlers import persistent
 # Import the SceneTalk client
 from ..scenetalk_client import SceneTalkClient
 from ..scenetalk_connection import get_connection_state, connect_to_server, disconnect_from_server
-from ..hda_db import find_by_name
+from ..properties.scenetalk_properties import SceneTalkProperties
 
-from . import models
+from ..properties import models
 
 logger = logging.getLogger("connection_panel")
 
-# Connection properties
-class SceneTalkProperties(bpy.types.PropertyGroup):
-    """Connection properties for SceneTalk integration."""
-    endpoint: StringProperty(
-        name="Server Endpoint",
-        description="SceneTalk server endpoint in the format ws://hostname:port",
-        default="wss://scenetalk.mythica.gg/ws"
-    )
-    
-    auto_connect: BoolProperty(
-        name="Auto Connect",
-        description="Automatically connect on startup",
-        default=False
-    )
-
-    show_connection_settings: BoolProperty(
-        name="Show Connection Settings",
-        description="Expand/collapse connection settings",
-        default=False
-    )
-
-    # for creating models
-    model_type: EnumProperty(
-        name="Type",
-        description="Select model type to generate",
-        items=models.get_model_item_enum(),
-        default='CRYSTALS',
-    )
-
-    export_directory: bpy.props.StringProperty(
-        name="Export Directory",
-        description="Directory to save temporary export files",
-        subtype='DIR_PATH'
-    )
 
 # Connection Panel
 class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
@@ -86,9 +52,9 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         # Endpoint input
         if props.show_connection_settings:
             row = box.row()
-            row.label(text="SceneTalk Endpoint:")
+            row.label(text="Endpoint:")
             row = box.row()
-            row.prop(props, "endpoint")
+            row.prop(props, "endpoint", text="")
             
             # Button row
             row = box.row(align=True)
@@ -97,12 +63,7 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
                 row.operator("scenetalk.disconnect", text="Disconnect", icon='CANCEL')
             else:
                 row.operator("scenetalk.connect", text="Connect", icon='PLAY')
-                
-            
-            # Reconnect button - always visible but only enabled if not connected
-            row = box.row()
-            row.operator("scenetalk.reconnect", text="Reconnect", icon='FILE_REFRESH')
-            
+                     
             # Auto-connect toggle
             row = box.row()
             row.prop(props, "auto_connect")
@@ -122,8 +83,10 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         row.prop(props, "model_type")
 
         row = box.row()
-        row.operator("hda.create_model", text="Create Object")
-        op = row.operator("hda.create_model", text="Track Object")
+        op = row.operator("gen.create_model", text="Create")
+        op.track_inputs = False
+        
+        op = row.operator("gen.create_model", text="Use Input")
         op.track_inputs = True
 
         # Get the active object
@@ -149,11 +112,11 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         if not active_object and not is_multi_select:
             return
         
-        hda_type = selected.get('hda_type', None)
-        if hda_type is None:
+        model_type = selected.get('model_type', None)
+        if model_type is None:
             return
         
-        all_matching_type = all(obj.get("hda_type", None) == hda_type for obj in context.selected_objects)
+        all_matching_type = all(obj.get("model_type", None) == model_type for obj in context.selected_objects)
 
         # TODO overlap properties?
         if not all_matching_type:
@@ -164,28 +127,41 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
         # Reset/init button
         row = box.row()
         row.scale_y = 1.5  # Make button bigger
-        row.operator("hda.init_params", text="Reset", icon='FILE_REFRESH')
+        row.operator("gen.init_params", text="Reset", icon='FILE_REFRESH')
 
         # Process button
         row.scale_y = 1.5  # Make button bigger
-        row.operator("hda.process", text="Cook", icon='MOD_HUE_SATURATION')
+        row.operator("gen.process", text="Cook", icon='MOD_HUE_SATURATION')
+
+        # Status information
+        status_row = box.row()
+
+        # Status with icon
+        gen = selected.gen
+        if gen.status == "cooking":
+            status_row.label(text="Cooking", icon='SORTTIME')
+        elif gen.status == "cooked":
+            status_row.label(text="Cooked", icon='CHECKMARK')
+        elif gen.status == "initialized":
+            status_row.label(text="Initialized", icon='SORTTIME')
+        else:
+            status_row.label(text=f"Status: {gen.status}", icon='INFO')
 
         # Show properties based on selected model type
-        hda = selected.hda
-        props = models.get_model_props(hda, hda_type)
-        box.label(text=hda_type + ":")
+        props = models.get_model_props(gen, model_type)
+        box.label(text=model_type + ":")
         if props:
             props.draw(box)
 
-        # File selection
+        # File selection - TODO make dropdown
         box = layout.box()
-        box.label(text="HDA File", icon='FILE_BLEND')
+        box.label(text="File name", icon='FILE_BLEND')
         row = box.row()
-        row.prop(hda, "hda_path", text="")
+        row.prop(gen, "file_name", text="")
 
         # List of inputs
         box = layout.box()
-        for input in hda.inputs:
+        for input in gen.inputs:
             row = box.row()
             row.prop(input, "input_ref", text="")
             
@@ -194,22 +170,8 @@ class SCENETALK_PT_ConnectionPanel(bpy.types.Panel):
             row.prop(input, "enabled")
 
         row = box.row()
-        row.operator("hda.add_input", text="Add", icon='ADD')
-        row.operator("hda.remove_input", text="Remove", icon='REMOVE')
-
-        # Status information
-        box = layout.box()
-        status_row = box.row()
-
-        # Status with icon
-        if hda.status == "cooking":
-            status_row.label(
-                text="Cooking", icon='SORTTIME')
-        elif hda.status == "cooked":
-            status_row.label(text="Cooked", icon='CHECKMARK')
-        else:
-            status_row.label(text=f"Status: {hda.status}", icon='INFO')
-        
+        row.operator("gen.add_input", text="Add", icon='ADD')
+        row.operator("gen.remove_input", text="Remove", icon='REMOVE')
         
 
 # Auto-connect on startup
@@ -222,7 +184,6 @@ def connect_on_startup():
 
 # Registration
 classes = (
-    SceneTalkProperties,
     SCENETALK_PT_ConnectionPanel,
 )
 
@@ -240,9 +201,6 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     
-    # Register connection properties
-    bpy.types.Scene.scenetalk_props = bpy.props.PointerProperty(type=SceneTalkProperties)
-
     # Register selection change handler
     bpy.app.handlers.depsgraph_update_post.append(selection_change_callback)
 
@@ -263,9 +221,7 @@ def unregister():
     # Unregister classes
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    
-    # Remove properties
-    del bpy.types.Scene.scenetalk_props
+
 
 if __name__ == "__main__":
     register()

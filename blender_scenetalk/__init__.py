@@ -7,9 +7,10 @@ from .build_object import upsert_object_data
 from .scenetalk_connection import init_client
 from .async_wrap import stop_event_loop
 
-from .panels import scene_panel, hda_object_panel
-from .operators import connection_operators, hda_object_operators
+from .panels import object_panel, scene_panel
+from .operators import connection_operators, object_operators
 from .panels.scene_panel import refresh_connection_panel
+from . import properties
 
 logger = logging.getLogger("extension.__init__")
 _event_queue = None
@@ -19,8 +20,8 @@ bl_info = {
     "author": "Jacob Repp",
     "version": (0, 1, 0),
     "blender": (4, 2, 0),
-    "location": "Properties > Object > Houdini Digital Asset",
-    "description": "Integrates Houdini Digital Assets (HDAs) into Blender",
+    "location": "Properties > Object > Procedural Generation",
+    "description": "Integrates generative assets such as HDAs into Blender",
     "warning": "Experimental",
     "doc_url": "",
     "category": "Object",
@@ -30,10 +31,11 @@ bl_info = {
 def register():
     global _event_queue
 
+    properties.register()
     connection_operators.register()
-    hda_object_operators.register()
+    object_operators.register()
     scene_panel.register()
-    hda_object_panel.register()
+    object_panel.register()
     
     _event_queue = asyncio.Queue()
     init_client(_event_queue)
@@ -74,12 +76,12 @@ def unregister():
     global _event_queue
     _event_queue.put_nowait(["quit"])
     stop_event_loop()
-    
+   
     scene_panel.unregister()
-    hda_object_panel.unregister()
-    hda_object_operators.unregister()
+    object_panel.unregister()
+    object_operators.unregister()
     connection_operators.unregister()
-
+    properties.unregister()
 
 if __name__ == "__main__":
     register()
