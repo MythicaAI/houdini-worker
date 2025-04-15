@@ -2,6 +2,9 @@
 
 This repo is a WIP evolution of the Houdini automation infrastructure behind https://api.mythica.gg
 
+[RFC](./RFC.md) for binary protocol is under development
+
+
 **In this repo:**
 * Dockerfile to run Houdini HDK inside a web server
 * Test HTML client
