@@ -1,6 +1,8 @@
 # SceneTalk
 
-This repo is a WIP evolution of the Houdini automation infrastructure behind https://api.mythica.gg
+This repo is the WIP evolution of the Houdini automation infrastructure behind [Mythica GG](https://api.mythica.gg).
+
+It provides a WebSocket and framing to do real-time 3D scene interchange.
 
 [RFC](./RFC.md) for binary protocol is under development
 
@@ -28,7 +30,9 @@ SFX_CLIENT_SECRET=<client-secret>
 
 Build the image
 
-`docker build . -t scenetalk`
+```bash
+docker build . -t scenetalk`
+```
 
 Run the image
 
