@@ -745,20 +745,23 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
     // Cook the node
     {
         rmt_ScopedCPUSample(CookNode, 0);
+
         OP_Context context(0.0);
-        if (!node->cook(context))
+        bool success = node->cook(context);
+
+        // Log errors
+        UT_Array<UT_Error> errors;
+        node->getRawErrors(errors, true);
+        for (const UT_Error& error : errors)
+        {
+            UT_String error_message;
+            error.getErrorMessage(error_message, UT_ERROR_NONE, true);
+            writer.error(std::string(error_message.c_str()));
+        }
+
+        if (!success)
         {
             writer.error("Failed to cook node");
-
-            UT_Array<UT_Error> errors;
-            node->getRawErrors(errors, true);
-            for (const UT_Error& error : errors)
-            {
-                UT_String error_message;
-                error.getErrorMessage(error_message, UT_ERROR_NONE, true);
-                writer.error(std::string(error_message.c_str()));
-            }
-
             return false;
         }
     }
