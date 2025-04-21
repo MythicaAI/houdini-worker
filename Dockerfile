@@ -55,6 +55,7 @@ LABEL version="1.0.0"
 LABEL tier="auto"
 
 # Setup Houdini environment
+ENV MYTHICA_ENDPOINT="https://api.mythica.gg"
 ENV SFX_CLIENT_ID=""
 ENV SFX_CLIENT_SECRET=""
 ENV HFS=/opt/houdini/build
