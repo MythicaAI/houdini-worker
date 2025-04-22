@@ -20,6 +20,8 @@
 #include <filesystem>
 #include <iostream>
 
+#include <PY/PY_Python.h>
+
 constexpr const int COOK_TIMEOUT_SECONDS = 60;
 constexpr const char* SOP_NODE_TYPE = "sop";
 
@@ -168,6 +170,41 @@ static OP_Node* find_node(MOT_Director* director)
     return node;
 }
 
+bool forceReload(OP_Node *fbx_node)
+{
+    if (!fbx_node)
+        return false;
+
+    /* full Houdini path of the node so Python can find it */
+    UT_String h_path;
+    fbx_node->getFullPath(h_path);          // e.g. "/obj/geo1/fbx_archive_import1"
+
+    /* build the one‑liner Python script */
+    std::string py =
+        "import hou\n"
+        "hou.node('" + std::string(h_path) + "')"
+        ".parm('reload').pressButton()\n";
+
+    /* run it – returns false only if a Python exception was raised */
+    bool success = PYrunPythonStatementsAndExpectNoErrors(py.c_str(), "FBX reload");
+    util::log() << "Reloaded " << h_path << " " << success << std::endl;
+
+    std::string prim_count_py =
+        "hou.node('" + std::string(h_path) + "').geometry().primCount()";
+
+    PY_Result r = PYrunPythonExpression(prim_count_py.c_str(), PY_Result::INT);
+    if (r.myResultType == PY_Result::INT)
+    {
+        util::log() << "Prim count = " << r.myIntValue << std::endl;
+    }
+    else
+    {
+        util::log() << "Failed to get prim count"  << r.myResultType << std::endl;
+    }
+
+    return success;
+}
+
 static OP_Node* create_input_node(OP_Network* parent, const std::string& path, StreamWriter& writer)
 {
     if (!std::filesystem::exists(path))
@@ -213,6 +250,25 @@ static OP_Node* create_input_node(OP_Network* parent, const std::string& path, S
             return nullptr;
         }
 
+        /* full Houdini path of the node so Python can find it */
+        UT_String h_path;
+        input_node->getFullPath(h_path);          // e.g. "/obj/geo1/fbx_archive_import1"
+
+        /* build the one‑liner Python script */
+        std::string py =
+            "import hou\n"
+            "n = hou.node('" + std::string(h_path) + "')\n"
+            "n.parm('sFBXFile').set('" + path + "')\n"
+            "n.parm('reload').pressButton()\n";
+
+        util::log() << "Executing: " << py << std::endl;
+
+        /* run it – returns false only if a Python exception was raised */
+        bool success = PYrunPythonStatementsAndExpectNoErrors(py.c_str(), "FBX reload");
+        util::log() << "Ran import script " << h_path << " with result " << success << std::endl;
+
+
+/*
         input_node->setString(path.c_str(), CH_STRING_LITERAL, "sFBXFile", 0, 0.0f);
         input_node->setInt("bConvertUnits", 0, 0.0f, 1);
         input_node->setInt("bImportAnimation", 0, 0.0f, 1);
@@ -220,6 +276,9 @@ static OP_Node* create_input_node(OP_Network* parent, const std::string& path, S
         input_node->setInt("bConvertYUp", 0, 0.0f, 1);
         input_node->setInt("bUnlockGeo", 0, 0.0f, 1);
         input_node->setInt("pack", 0, 0.0f, 1);
+        forceReload(input_node);
+*/
+
         return input_node;
     }
     else if (ext == ".gltf" || ext == ".glb")
