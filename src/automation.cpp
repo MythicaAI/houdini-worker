@@ -259,7 +259,7 @@ static void set_inputs(OP_Node* node, const std::map<int, FileParameter>& inputs
     }
 }
 
-static void set_parameters(OP_Node* node, const ParameterSet& parameters)
+static void set_parameters(OP_Node* node, const ParameterSet& parameters, StreamWriter& writer)
 {
     for (const auto& [key, value] : parameters)
     {
@@ -311,6 +311,18 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters)
             {
                 node->updateMultiParmFromRamp(0.0, ramp, *rampParm, false, PRM_AK_SET_KEY);
             }
+        }
+        else if (std::holds_alternative<FileParameter>(value))
+        {
+            const auto& file = std::get<FileParameter>(value);
+            if (!file.file_path.empty())
+            {
+                node->setString(file.file_path.c_str(), CH_STRING_LITERAL, key.c_str(), 0, 0.0f);
+            }
+        }
+        else
+        {
+            writer.error("Failed to set parameter: " + key);
         }
     }
 }
@@ -738,7 +750,7 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
             set_inputs(node, request.inputs, writer);
         }
 
-        set_parameters(node, request.parameters);
+        set_parameters(node, request.parameters, writer);
         session.m_state = request;
     }
 
