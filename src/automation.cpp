@@ -14,13 +14,12 @@
 #include <ROP/ROP_Node.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
+#include <PY/PY_Python.h>
 #include <UT/UT_Error.h>
 #include <UT/UT_Ramp.h>
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
-
-#include <PY/PY_Python.h>
 
 constexpr const int COOK_TIMEOUT_SECONDS = 60;
 constexpr const char* SOP_NODE_TYPE = "sop";
