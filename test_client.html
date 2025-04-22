@@ -717,7 +717,7 @@
     console.log("received event: " + JSON.stringify(data));
 
     // Log status messages without timestamps
-    if (data.op === "status") {
+    if (data.op === "status" || data.op === "error") {
         statusLog.push(data.data);
         updateLogContent();
     }
