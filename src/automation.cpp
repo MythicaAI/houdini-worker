@@ -346,6 +346,7 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
 
     GA_ROHandleV3 Cd_P_handle(gdp, GA_ATTRIB_POINT, "Cd");
     GA_ROHandleV3 Cd_V_handle(gdp, GA_ATTRIB_VERTEX, "Cd");
+    GA_ROHandleV3 Cd_PR_handle(gdp, GA_ATTRIB_PRIMITIVE, "Cd");
 
     const GEO_Primitive* prim;
     GA_FOR_ALL_PRIMITIVES(gdp, prim)
@@ -363,6 +364,8 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
 
         int base_index = geom.points.size() / 3;
         assert(geom.points.size() % 3 == 0);
+
+        GA_Offset primOff = prim->getMapOffset();
 
         for (GA_Size i = 0; i < num_verts; i++)
         {
@@ -416,6 +419,13 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
             else if (Cd_V_handle.isValid())
             {
                 UT_Vector3 color = Cd_V_handle.get(vtxOff);
+                geom.colors.push_back(color.x());
+                geom.colors.push_back(color.y());
+                geom.colors.push_back(color.z());
+            }
+            else if (Cd_PR_handle.isValid())
+            {
+                UT_Vector3 color = Cd_PR_handle.get(primOff);
                 geom.colors.push_back(color.x());
                 geom.colors.push_back(color.y());
                 geom.colors.push_back(color.z());
