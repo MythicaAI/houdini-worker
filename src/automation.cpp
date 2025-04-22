@@ -14,6 +14,7 @@
 #include <ROP/ROP_Node.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
+#include <PY/PY_Python.h>
 #include <UT/UT_Error.h>
 #include <UT/UT_Ramp.h>
 #include <algorithm>
@@ -215,11 +216,23 @@ static OP_Node* create_input_node(OP_Network* parent, const std::string& path, S
 
         input_node->setString(path.c_str(), CH_STRING_LITERAL, "sFBXFile", 0, 0.0f);
         input_node->setInt("bConvertUnits", 0, 0.0f, 1);
-        input_node->setInt("bImportAnimation", 0, 0.0f, 1);
-        input_node->setInt("bImportBoneSkin", 0, 0.0f, 1);
-        input_node->setInt("bConvertYUp", 0, 0.0f, 1);
-        input_node->setInt("bUnlockGeo", 0, 0.0f, 1);
-        input_node->setInt("pack", 0, 0.0f, 1);
+
+        // Reload the node to apply the changes
+        UT_String h_path;
+        input_node->getFullPath(h_path);
+
+        std::string py =
+            "import hou\n"
+            "n = hou.node('" + std::string(h_path) + "')\n"
+            "n.parm('reload').pressButton()\n";
+
+        bool success = PYrunPythonStatementsAndExpectNoErrors(py.c_str(), "FBX reload");
+        if (!success)
+        {
+            writer.error("Failed to reload fbx_archive_import node for " + path);
+            return nullptr;
+        }
+
         return input_node;
     }
     else if (ext == ".gltf" || ext == ".glb")
