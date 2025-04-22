@@ -3,6 +3,7 @@
 .idea/
 .venv/
 .vscode/
+*.code-workspace
 __pycacache__/
 build/
 cmake-build*/
