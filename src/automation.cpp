@@ -532,7 +532,7 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputF
         export_node->setString(sop_path.c_str(), CH_STRING_LITERAL, "startnode", 0, 0.0f);
         export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "sopoutput", 0, 0.0f);
         export_node->setInt("exportkind", 0, 0.0f, 0);
-
+        export_node->setInt("convertunits", 0, 0.0f, 1);
     }
     else if (format == EOutputFormat::GLB)
     {
