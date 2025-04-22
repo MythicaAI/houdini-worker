@@ -755,6 +755,10 @@
       }
       handleRequestComplete();
     }
+
+    if (data.op === "automation" && data.data === "end" && requestInFlight) {
+      handleRequestComplete();
+    }
   };
 
   function handleRequestComplete() {
