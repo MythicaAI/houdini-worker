@@ -607,7 +607,7 @@
           <div class="slider-row">
             <span class="slider-label">${config.label || 'Input File'}:</span>
             <button class="download-btn" style="margin: 0; flex: 1;" id="${key}Button">Select File</button>
-            <input type="file" id="${key}FilePicker" accept=".usd,.usda,.usdc" style="display: none;">
+            <input type="file" id="${key}FilePicker" style="display: none;">
           </div>
         `;
         container.appendChild(filePickerContainer);
@@ -634,8 +634,8 @@
             const uploadMessage = {
               "op": "file_upload",
               "data": {
-                "file_id": "file_input0",
-                "content_type": "application/usdz",
+                "file_id": guid,
+                "content_type": `application/${fileExtension}`,
                 "content_base64": base64Content
               }
             };
@@ -643,7 +643,7 @@
             ws.send(JSON.stringify(uploadMessage));
 
             paramValues[key] = {
-              file_id: "file_input0",
+              file_id: guid,
             };
             regenerateMesh();
           };
@@ -717,7 +717,7 @@
     console.log("received event: " + JSON.stringify(data));
 
     // Log status messages without timestamps
-    if (data.op === "status") {
+    if (data.op === "status" || data.op === "error") {
         statusLog.push(data.data);
         updateLogContent();
     }
