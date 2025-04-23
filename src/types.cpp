@@ -232,53 +232,44 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, S
                     return false;
                 }
 
-                switch (array->get(0)->getType())
+                bool all_ints = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.getType() == UT_JSONValue::JSON_INT; });
+                bool all_numbers = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.isNumber(); });
+                bool all_maps = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.getType() == UT_JSONValue::JSON_MAP; });
+
+                if (all_ints)
                 {
-                    case UT_JSONValue::JSON_INT:
+                    std::vector<int64_t> int_array;
+                    for (const auto& [idx, array_value] : value.enumerate())
                     {
-                        std::vector<int64_t> int_array;
-                        for (const auto& [idx, array_value] : value.enumerate())
-                        {
-                            if (array_value.getType() != UT_JSONValue::JSON_INT)
-                            {
-                                writer.error("Array parameter has mixed types: " + key.toStdString());
-                                return false;
-                            }
-                            int_array.push_back(array_value.getI());
-                        }
-                        paramSet[key.toStdString()] = Parameter(int_array);
-                        break;
+                        int_array.push_back(array_value.getI());
                     }
-                    case UT_JSONValue::JSON_REAL:
-                    {
-                        std::vector<double> float_array;
-                        for (const auto& [idx, array_value] : value.enumerate())
-                        {
-                            if (array_value.getType() != UT_JSONValue::JSON_REAL)
-                            {
-                                writer.error("Array parameter has mixed types: " + key.toStdString());
-                                return false;
-                            }
-                            float_array.push_back(array_value.getF());
-                        }
-                        paramSet[key.toStdString()] = Parameter(float_array);
-                        break;
-                    }
-                    case UT_JSONValue::JSON_MAP:
-                    {
-                        Parameter param;
-                        if (!parse_ramp_parameter(value, param, writer))
-                        {
-                            writer.error("Failed to parse ramp parameter: " + key.toStdString());
-                            return false;
-                        }
-                        paramSet[key.toStdString()] = param;
-                        break;
-                    }
-                    default:
-                        writer.error("Unsupported array type: " + key.toStdString());
-                        return false;
+                    paramSet[key.toStdString()] = Parameter(int_array);
                 }
+                else if (all_numbers)
+                {
+                    std::vector<double> float_array;
+                    for (const auto& [idx, array_value] : value.enumerate())
+                    {
+                        float_array.push_back(array_value.getF());
+                    }
+                    paramSet[key.toStdString()] = Parameter(float_array);
+                }
+                else if (all_maps)
+                {
+                    Parameter param;
+                    if (!parse_ramp_parameter(value, param, writer))
+                    {
+                        writer.error("Failed to parse ramp parameter: " + key.toStdString());
+                        return false;
+                    }
+                    paramSet[key.toStdString()] = param;
+                }
+                else
+                {
+                    writer.error("Unsupported array type: " + key.toStdString());
+                    return false;
+                }
+
                 break;
             }
         }
