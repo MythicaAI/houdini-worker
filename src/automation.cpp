@@ -763,6 +763,16 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
                 return false;
             }
 
+            // Install the dependencies
+            for (const auto& dependency : request.dependencies)
+            {
+                std::string dependency_node_type = install_library(session.m_director, dependency.file_path, 0, writer);
+                if (dependency_node_type.empty())
+                {
+                    return false;
+                }
+            }
+
             // Setup the node
             node = create_node(session.m_director, node_type, writer);
             if (!node)

@@ -57,6 +57,31 @@ static bool parse_file_parameter(const UT_JSONValue& value, Parameter& param, St
     return true;
 }
 
+static bool parse_file_parameter_array(const UT_JSONValue& value, Parameter& param, StreamWriter& writer)
+{
+    const UT_JSONValueArray* array = value.getArray();
+    if (!array || array->size() == 0)
+    {
+        writer.error("File parameter array is empty");
+        return false;
+    }
+
+    std::vector<FileParameter> file_parameters;
+    for (const auto& [idx, array_value] : value.enumerate())
+    {
+        Parameter temp_param;
+        if (!parse_file_parameter(array_value, temp_param, writer))
+        {
+            writer.error("Failed to parse file parameter array index: " + std::to_string(idx));
+            return false;
+        }
+        file_parameters.push_back(std::get<FileParameter>(temp_param));
+    }
+
+    param = Parameter(file_parameters);
+    return true;
+}
+
 static bool parse_interp_parameter(const UT_StringHolder& string, UT_SPLINE_BASIS& interp)
 {
     if (string == "Constant")
@@ -98,7 +123,7 @@ static bool parse_interp_parameter(const UT_StringHolder& string, UT_SPLINE_BASI
     return false;
 }
 
-static bool parse_ramp_parameter(const UT_JSONValue& value, Parameter& param, StreamWriter& writer)
+static bool parse_ramp_point_array(const UT_JSONValue& value, Parameter& param, StreamWriter& writer)
 {
     const UT_JSONValueArray* array = value.getArray();
     if (!array || array->size() == 0)
@@ -256,13 +281,28 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, S
                 }
                 else if (all_maps)
                 {
-                    Parameter param;
-                    if (!parse_ramp_parameter(value, param, writer))
+                    bool hint_is_ramp = array->get(0)->get("pos") != nullptr;
+
+                    if (hint_is_ramp)
                     {
-                        writer.error("Failed to parse ramp parameter: " + key.toStdString());
-                        return false;
+                        Parameter param;
+                        if (!parse_ramp_point_array(value, param, writer))
+                        {
+                            writer.error("Failed to parse ramp parameter: " + key.toStdString());
+                            return false;
+                        }
+                        paramSet[key.toStdString()] = param;
                     }
-                    paramSet[key.toStdString()] = param;
+                    else
+                    {
+                        Parameter param;
+                        if (!parse_file_parameter_array(value, param, writer))
+                        {
+                            writer.error("Failed to parse file parameter array: " + key.toStdString());
+                            return false;
+                        }
+                        paramSet[key.toStdString()] = param;
+                    }
                 }
                 else
                 {
@@ -290,6 +330,13 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, S
         return false;
     }
 
+    auto dependencies_iter = paramSet.find("dependencies");
+    if (dependencies_iter != paramSet.end() && !std::holds_alternative<std::vector<FileParameter>>(dependencies_iter->second))
+    {
+        writer.error("Expected optional dependencies list to be an array of file parameters");
+        return false;
+    }
+
     auto format_iter = paramSet.find("format");
     if (format_iter == paramSet.end() || !std::holds_alternative<std::string>(format_iter->second))
     {
@@ -306,9 +353,14 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, S
 
     request.hda_file = std::get<FileParameter>(hda_path_iter->second);
     request.definition_index = std::get<int64_t>(definition_index_iter->second);
+    if (dependencies_iter != paramSet.end())
+    {
+        request.dependencies = std::get<std::vector<FileParameter>>(dependencies_iter->second);
+    }
     paramSet.erase("hda_path");
     paramSet.erase("definition_index");
     paramSet.erase("format");
+    paramSet.erase("dependencies");
 
     // Bind input parameters
     std::regex input_pattern("^input(\\d+)$");
@@ -451,6 +503,11 @@ void resolve_file(FileParameter& file, FileMap* file_map_admin, FileMap& file_ma
 void resolve_files(CookRequest& request, FileMap* file_map_admin, FileMap& file_map_client, StreamWriter& writer, std::vector<std::string>& unresolved_files)
 {
     resolve_file(request.hda_file, file_map_admin, file_map_client, writer, unresolved_files);
+
+    for (auto& dependency : request.dependencies)
+    {
+        resolve_file(dependency, file_map_admin, file_map_client, writer, unresolved_files);
+    }
 
     for (auto& [idx, file] : request.inputs)
     {
