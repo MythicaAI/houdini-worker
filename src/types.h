@@ -49,7 +49,8 @@ using Parameter = std::variant<
     FileParameter,
     std::vector<int64_t>,
     std::vector<double>,
-    std::vector<RampPoint>
+    std::vector<RampPoint>,
+    std::vector<FileParameter>
 >;
 using ParameterSet = std::map<std::string, Parameter>;
 
@@ -67,6 +68,7 @@ struct CookRequest
 {
     FileParameter hda_file;
     int64_t definition_index;
+    std::vector<FileParameter> dependencies;
     std::map<int, FileParameter> inputs;
     ParameterSet parameters;
     EOutputFormat format;
