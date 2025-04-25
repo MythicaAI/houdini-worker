@@ -26,17 +26,35 @@ testing.env
 ```
 SFX_CLIENT_ID=<client-id>
 SFX_CLIENT_SECRET=<client-secret>
+MYTHICA_ENDPOINT=http://host.docker.internal:8080 #LINUX 
 ```
 
 Build the image
 
 ```bash
-docker build . -t scenetalk`
+docker build . -t mythica-scenetalk
 ```
 
 Run the image
 
-`docker run -it --rm --env-file testing.env -p 8765:8765 scenetalk`
+```bash
+docker run -it --rm \
+  --env-file testing.env \
+  -p 8765:8765 \
+  --name scentalk \
+  mythica-scenetalk
+
+#For Linux:
+docker run -it --rm \
+  --env-file testing.env \
+  -p 8765:8765 \
+  --name scentalk \
+  mythica-scenetalk \
+  --add-host=host.docker.internal:host-gateway \
+  --network storage \
+  --name scenetalk \
+  mythica-scenetalk
+```
 
 Open test_client.html to test the web client
 
