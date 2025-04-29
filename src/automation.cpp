@@ -494,7 +494,7 @@ bool export_geometry_obj(const GU_Detail* gdp, std::vector<char>& file_data, Str
     return true;
 }
 
-bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputFormat format, std::vector<char>& file_data, StreamWriter& writer)
+bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, const GU_Detail* gdp, EOutputFormat format, std::vector<char>& file_data, StreamWriter& writer)
 {
     rmt_ScopedCPUSample(ExportGeometryFormat, 0);
 
@@ -533,6 +533,11 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, EOutputF
         export_node->setString(out_path.c_str(), CH_STRING_LITERAL, "sopoutput", 0, 0.0f);
         export_node->setInt("exportkind", 0, 0.0f, 0);
         export_node->setInt("convertunits", 0, 0.0f, 1);
+
+        if (gdp->findAttribute(GA_ATTRIB_PRIMITIVE, GA_SCOPE_PUBLIC, "path") != nullptr)
+        {
+            export_node->setInt("buildfrompath", 0, 0.0f, 1);
+        }
     }
     else if (format == EOutputFormat::GLB)
     {
@@ -679,7 +684,7 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
     else if (format == EOutputFormat::GLB)
     {
         std::vector<char> file_data;
-        if (!export_geometry_with_format(director, sop, format, file_data, writer))
+        if (!export_geometry_with_format(director, sop, gdp, format, file_data, writer))
         {
             writer.error("Failed to export glb geometry");
             return false;
@@ -690,7 +695,7 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
     else if (format == EOutputFormat::FBX)
     {
         std::vector<char> file_data;
-        if (!export_geometry_with_format(director, sop, format, file_data, writer))
+        if (!export_geometry_with_format(director, sop, gdp, format, file_data, writer))
         {
             writer.error("Failed to export fbx geometry");
             return false;
@@ -701,7 +706,7 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
     else if (format == EOutputFormat::USD)
     {
         std::vector<char> file_data;
-        if (!export_geometry_with_format(director, sop, format, file_data, writer))
+        if (!export_geometry_with_format(director, sop, gdp, format, file_data, writer))
         {
             writer.error("Failed to export usd geometry");
             return false;
