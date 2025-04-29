@@ -49,6 +49,7 @@ using Parameter = std::variant<
     FileParameter,
     std::vector<int64_t>,
     std::vector<double>,
+    std::vector<std::string>,
     std::vector<RampPoint>,
     std::vector<FileParameter>
 >;

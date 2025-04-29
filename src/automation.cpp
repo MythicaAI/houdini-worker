@@ -309,6 +309,14 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters, Stream
                 node->setFloat(key.c_str(), i, 0.0f, float_array[i]);
             }
         }
+        else if (std::holds_alternative<std::vector<std::string>>(value))
+        {
+            const auto& string_array = std::get<std::vector<std::string>>(value);
+            for (size_t i = 0; i < string_array.size(); ++i)
+            {
+                node->setString(string_array[i].c_str(), CH_STRING_LITERAL, key.c_str(), i, 0.0f);
+            }
+        }
         else if (std::holds_alternative<std::vector<RampPoint>>(value))
         {
             const auto& ramp_points = std::get<std::vector<RampPoint>>(value);

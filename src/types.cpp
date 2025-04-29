@@ -259,6 +259,7 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, S
 
                 bool all_ints = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.getType() == UT_JSONValue::JSON_INT; });
                 bool all_numbers = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.isNumber(); });
+                bool all_strings = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.getType() == UT_JSONValue::JSON_STRING; });
                 bool all_maps = std::all_of(value.enumerate().begin(), value.enumerate().end(), [](const auto& p) { return p.second.getType() == UT_JSONValue::JSON_MAP; });
 
                 if (all_ints)
@@ -278,6 +279,15 @@ static bool parse_cook_request(const UT_JSONValue* data, CookRequest& request, S
                         float_array.push_back(array_value.getF());
                     }
                     paramSet[key.toStdString()] = Parameter(float_array);
+                }
+                else if (all_strings)
+                {
+                    std::vector<std::string> string_array;
+                    for (const auto& [idx, array_value] : value.enumerate())
+                    {
+                        string_array.push_back(array_value.getString().toStdString());
+                    }
+                    paramSet[key.toStdString()] = Parameter(string_array);
                 }
                 else if (all_maps)
                 {
