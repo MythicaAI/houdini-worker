@@ -11,6 +11,7 @@
 #include <GEO/GEO_Primitive.h>
 #include <GEO/GEO_IOTranslator.h>
 #include <GU/GU_Detail.h>
+#include <GU/GU_PrimPacked.h>
 #include <ROP/ROP_Node.h>
 #include <SOP/SOP_Node.h>
 #include <MOT/MOT_Director.h>
@@ -364,94 +365,110 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
     const GEO_Primitive* prim;
     GA_FOR_ALL_PRIMITIVES(gdp, prim)
     {
-        if (prim->getTypeId() != GA_PRIMPOLY)
+        if (prim->getTypeId() == GA_PRIMPOLY)
         {
-           continue;
+            GA_Size num_verts = prim->getVertexCount();
+            if (num_verts < 3)
+            {
+                continue;
+            }
+
+            int base_index = geom.points.size() / 3;
+            assert(geom.points.size() % 3 == 0);
+
+            GA_Offset primOff = prim->getMapOffset();
+
+            for (GA_Size i = 0; i < num_verts; i++)
+            {
+                GA_Offset ptOff = prim->getPointOffset(i);
+                GA_Offset vtxOff = prim->getVertexOffset(i);
+
+                // Position
+                UT_Vector3 pos = P_handle.get(ptOff);
+                geom.points.push_back(pos.x());
+                geom.points.push_back(pos.y());
+                geom.points.push_back(pos.z());
+
+                // Normal
+                if (N_P_handle.isValid())
+                {
+                    UT_Vector3 norm = N_P_handle.get(ptOff);
+                    geom.normals.push_back(norm.x());
+                    geom.normals.push_back(norm.y());
+                    geom.normals.push_back(norm.z());
+                }
+                else if (N_V_handle.isValid())
+                {
+                    UT_Vector3 norm = N_V_handle.get(vtxOff);
+                    geom.normals.push_back(norm.x());
+                    geom.normals.push_back(norm.y());
+                    geom.normals.push_back(norm.z());
+                }
+
+                // UV
+                if (UV_P_handle.isValid())
+                {
+                    UT_Vector3 uv = UV_P_handle.get(ptOff);
+                    geom.uvs.push_back(uv.x());
+                    geom.uvs.push_back(uv.y());
+                }
+                else if (UV_V_handle.isValid())
+                {
+                    UT_Vector3 uv = UV_V_handle.get(vtxOff);
+                    geom.uvs.push_back(uv.x());
+                    geom.uvs.push_back(uv.y());
+                }
+
+                // Color
+                if (Cd_P_handle.isValid())
+                {
+                    UT_Vector3 color = Cd_P_handle.get(ptOff);
+                    geom.colors.push_back(color.x());
+                    geom.colors.push_back(color.y());
+                    geom.colors.push_back(color.z());
+                }
+                else if (Cd_V_handle.isValid())
+                {
+                    UT_Vector3 color = Cd_V_handle.get(vtxOff);
+                    geom.colors.push_back(color.x());
+                    geom.colors.push_back(color.y());
+                    geom.colors.push_back(color.z());
+                }
+                else if (Cd_PR_handle.isValid())
+                {
+                    UT_Vector3 color = Cd_PR_handle.get(primOff);
+                    geom.colors.push_back(color.x());
+                    geom.colors.push_back(color.y());
+                    geom.colors.push_back(color.z());
+                }
+            }
+
+            // Triangulate as a fan
+            int num_tris = num_verts - 2;
+            for (int i = 0; i < num_tris; i++)
+            {
+                geom.indices.push_back(base_index + 0);
+                geom.indices.push_back(base_index + i + 1);
+                geom.indices.push_back(base_index + i + 2);
+            }
         }
-
-        GA_Size num_verts = prim->getVertexCount();
-        if (num_verts < 3)
+        else if (GU_PrimPacked::isPackedPrimitive(*prim))
         {
-            continue;
+            const GU_PrimPacked* pack = static_cast<const GU_PrimPacked*>(prim);
+
+            GU_Detail unpacked_gdp;
+            bool result = pack->unpackUsingPolygons(unpacked_gdp);
+            if (!result)
+            {
+                writer.error("Failed to unpack geometry");
+                continue;
+            }
+
+            export_geometry_raw(&unpacked_gdp, geom, writer);
         }
-
-        int base_index = geom.points.size() / 3;
-        assert(geom.points.size() % 3 == 0);
-
-        GA_Offset primOff = prim->getMapOffset();
-
-        for (GA_Size i = 0; i < num_verts; i++)
+        else
         {
-            GA_Offset ptOff = prim->getPointOffset(i);
-            GA_Offset vtxOff = prim->getVertexOffset(i);
-
-            // Position
-            UT_Vector3 pos = P_handle.get(ptOff);
-            geom.points.push_back(pos.x());
-            geom.points.push_back(pos.y());
-            geom.points.push_back(pos.z());
-
-            // Normal
-            if (N_P_handle.isValid())
-            {
-                UT_Vector3 norm = N_P_handle.get(ptOff);
-                geom.normals.push_back(norm.x());
-                geom.normals.push_back(norm.y());
-                geom.normals.push_back(norm.z());
-            }
-            else if (N_V_handle.isValid())
-            {
-                UT_Vector3 norm = N_V_handle.get(vtxOff);
-                geom.normals.push_back(norm.x());
-                geom.normals.push_back(norm.y());
-                geom.normals.push_back(norm.z());
-            }
-
-            // UV
-            if (UV_P_handle.isValid())
-            {
-                UT_Vector3 uv = UV_P_handle.get(ptOff);
-                geom.uvs.push_back(uv.x());
-                geom.uvs.push_back(uv.y());
-            }
-            else if (UV_V_handle.isValid())
-            {
-                UT_Vector3 uv = UV_V_handle.get(vtxOff);
-                geom.uvs.push_back(uv.x());
-                geom.uvs.push_back(uv.y());
-            }
-
-            // Color
-            if (Cd_P_handle.isValid())
-            {
-                UT_Vector3 color = Cd_P_handle.get(ptOff);
-                geom.colors.push_back(color.x());
-                geom.colors.push_back(color.y());
-                geom.colors.push_back(color.z());
-            }
-            else if (Cd_V_handle.isValid())
-            {
-                UT_Vector3 color = Cd_V_handle.get(vtxOff);
-                geom.colors.push_back(color.x());
-                geom.colors.push_back(color.y());
-                geom.colors.push_back(color.z());
-            }
-            else if (Cd_PR_handle.isValid())
-            {
-                UT_Vector3 color = Cd_PR_handle.get(primOff);
-                geom.colors.push_back(color.x());
-                geom.colors.push_back(color.y());
-                geom.colors.push_back(color.z());
-            }
-        }
-
-        // Triangulate as a fan
-        int num_tris = num_verts - 2;
-        for (int i = 0; i < num_tris; i++)
-        {
-            geom.indices.push_back(base_index + 0);
-            geom.indices.push_back(base_index + i + 1);
-            geom.indices.push_back(base_index + i + 2);
+            writer.error("Unable to export primitive type: " + std::to_string(prim->getTypeId().get()));
         }
     }
 
