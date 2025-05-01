@@ -717,9 +717,14 @@
     console.log("received event: " + JSON.stringify(data));
 
     // Log status messages without timestamps
-    if (data.op === "status" || data.op === "error") {
-        statusLog.push(data.data);
-        updateLogContent();
+    if (data.op === "log") {
+      const log_level = data.data.level;
+      const log_text = data.data.text;
+
+      const log_line = "[" + log_level + "] " + log_text;
+      statusLog.push(log_line);
+
+      updateLogContent();
     }
 
     if (data.op === "file") {

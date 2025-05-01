@@ -268,7 +268,7 @@ static void set_inputs(OP_Node* node, const std::map<int, FileParameter>& inputs
                 continue;
             }
         }
-        writer.status("Adding input " + file.file_path + " to node " + node->getName().c_str() + " at index " + std::to_string(index));
+        writer.info("Adding input " + file.file_path + " to node " + node->getName().c_str() + " at index " + std::to_string(index));
         node->setInput(index, input_node);
     }
 }
@@ -831,7 +831,20 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
         {
             UT_String error_message;
             error.getErrorMessage(error_message, UT_ERROR_NONE, true);
-            writer.error(std::string(error_message.c_str()));
+
+            UT_ErrorSeverity severity = error.getSeverity();
+            if (severity <= UT_ERROR_PROMPT)
+            {
+                writer.info(std::string(error_message.c_str()));
+            }
+            else if (severity <= UT_ERROR_WARNING)
+            {
+                writer.warning(std::string(error_message.c_str()));
+            }
+            else
+            {
+                writer.error(std::string(error_message.c_str()));
+            }
         }
 
         if (!success)

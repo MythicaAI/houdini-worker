@@ -20,7 +20,8 @@ public:
     {}
 
     void state(AutomationState state);
-    void status(const std::string& message);
+    void info(const std::string& message);
+    void warning(const std::string& message);
     void error(const std::string& message);
     void file(const std::string& file_name, const std::vector<char>& file_data);
     void geometry(const Geometry& geometry);
