@@ -12,7 +12,7 @@ void InterruptHandler::start(UT_Interrupt *intr,
     if (priority >= m_priority_threshold)
     {
         std::string message = msg.buildMessage().toStdString();
-        m_writer.status(message);
+        m_writer.info(message);
     }
 }
 
@@ -26,7 +26,7 @@ void InterruptHandler::push(UT_Interrupt *intr,
     if (priority >= m_priority_threshold)
     {
         std::string message = msg.buildMessage().toStdString();
-        m_writer.status(message);
+        m_writer.info(message);
     }
 
     if (m_timeout_seconds > 0)
@@ -48,7 +48,7 @@ void InterruptHandler::busyCheck(bool interrupted,
 {
     rmt_ScopedCPUSample(InterruptBusyCheck, 0);
 
-    m_writer.status("Progress: " + std::to_string(percent) + " " + std::to_string(longpercent));
+    m_writer.info("Progress: " + std::to_string(percent) + " " + std::to_string(longpercent));
 }
 
 void InterruptHandler::start_timeout(int timeout_seconds)

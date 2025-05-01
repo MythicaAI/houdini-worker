@@ -14,18 +14,19 @@ void StreamWriter::state(AutomationState state)
     writeToStream(m_client_id, "automation", state == AutomationState::Start ? "\"start\"" : "\"end\"");
 }
 
-void StreamWriter::status(const std::string& message)
+void StreamWriter::info(const std::string& message)
 {
-    UT_JSONValue json;
-    json.setString(message);
-    writeToStream(m_client_id, "status", json.toString().c_str());
+    writeToStream(m_client_id, "log", "{\"level\":\"info\",\"text\":\"" + message + "\"}");
+}
+
+void StreamWriter::warning(const std::string& message)
+{
+    writeToStream(m_client_id, "log", "{\"level\":\"warning\",\"text\":\"" + message + "\"}");
 }
 
 void StreamWriter::error(const std::string& message)
 {
-    UT_JSONValue json;
-    json.setString(message);
-    writeToStream(m_client_id, "error", json.toString().c_str());
+    writeToStream(m_client_id, "log", "{\"level\":\"error\",\"text\":\"" + message + "\"}");
 }
 
 void StreamWriter::file(const std::string& file_name, const std::vector<char>& file_data)
