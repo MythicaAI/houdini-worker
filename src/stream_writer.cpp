@@ -14,19 +14,28 @@ void StreamWriter::state(AutomationState state)
     writeToStream(m_client_id, "automation", state == AutomationState::Start ? "\"start\"" : "\"end\"");
 }
 
+static std::string build_log_message(const std::string& level, const std::string& message)
+{
+    UT_JSONValue json;
+    json.setAsMap();
+    json.appendMap("level", UT_JSONValue(level.c_str()));
+    json.appendMap("text", UT_JSONValue(message.c_str()));
+    return json.toString().c_str();
+}
+
 void StreamWriter::info(const std::string& message)
 {
-    writeToStream(m_client_id, "log", "{\"level\":\"info\",\"text\":\"" + message + "\"}");
+    writeToStream(m_client_id, "log", build_log_message("info", message));
 }
 
 void StreamWriter::warning(const std::string& message)
 {
-    writeToStream(m_client_id, "log", "{\"level\":\"warning\",\"text\":\"" + message + "\"}");
+    writeToStream(m_client_id, "log", build_log_message("warning", message));
 }
 
 void StreamWriter::error(const std::string& message)
 {
-    writeToStream(m_client_id, "log", "{\"level\":\"error\",\"text\":\"" + message + "\"}");
+    writeToStream(m_client_id, "log", build_log_message("error", message));
 }
 
 void StreamWriter::file(const std::string& file_name, const std::vector<char>& file_data)
