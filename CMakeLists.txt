@@ -23,6 +23,10 @@ target_include_directories(mongoose PUBLIC
     third_party/mongoose
 )
 
+target_compile_definitions(mongoose PRIVATE
+    MG_MAX_RECV_SIZE=33554432  # 32MB
+)
+
 # Setup the path for houdini toolkit (cmake support)
 if(APPLE)
     # Use specific path for macOS builds
