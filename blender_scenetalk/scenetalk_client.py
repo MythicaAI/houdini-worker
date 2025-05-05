@@ -11,7 +11,7 @@ import contextlib
 import os
 from typing import Dict, Any, Optional, Tuple, Callable
 from asyncio import Queue
-from .hda_db import find_by_name
+from .model_db import find_by_name
 
 # Add the 'libs' folder to the Python path
 libs_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib")
@@ -44,6 +44,7 @@ class SceneTalkClient:
         self.websocket = None
         self.async_stack = None
         self.connection_state = "disconnected"
+        self.last_error = None
         self._task = None
         # TODO: migrate to request context
         self.current_object_schema = None
@@ -71,6 +72,11 @@ class SceneTalkClient:
 
     async def connect(self, endpoint) -> bool:
         """Connect to the SceneTalk WebSocket server."""
+        if self.connection_state == "connected" or self.connection_state == "connecting":
+            return
+        
+        self.last_error = None
+        self.state = "connecting"
         logger.info(f"Connecting to {endpoint}")
         try:
             self.client = httpx.AsyncClient(
@@ -84,18 +90,20 @@ class SceneTalkClient:
             # in an async stack to handle the async generator
             self.async_stack = contextlib.AsyncExitStack()
             self.websocket = await self.async_stack.enter_async_context(
-                aconnect_ws(self.ws_url, self.client))   
+                aconnect_ws(endpoint, self.client))
             self.connection_state = "connected"
             self.ws_url = endpoint
             await self.event_queue.put(["connected", self.ws_url])
             return True
         
         except httpx.ConnectError as e:
-            logger.error(f"Connection error: {e}")
+            self.last_error = f"Connection error: {e}"
+            await self.event_queue.put(("error", self.last_error))
             await self.disconnect()
             return False
         except Exception as e:
-            logger.error(f"Failed to connect: {e}")
+            self.last_error = f"Connection failure: {e}"
+            await self.event_queue.put(("error", self.last_error))
             await self.disconnect()
             return False
 
@@ -171,71 +179,6 @@ class SceneTalkClient:
             logger.error(f"Error sending message: {e}")
             return False 
 
-    async def _test_cube(self):
-        # Upload HDA file
-        hda_file_id = "file_test_hda"
-        hda_path = "../assets/test_cube.hda"
-        base64_content = None
-        with open(hda_path, "rb") as f:
-            file_content = f.read()
-            base64_content = base64.b64encode(file_content).decode('utf-8')
-
-        upload_message = {
-            "op": "file_upload",
-            "data": {
-                "file_id": hda_file_id,
-                "content_type": "application/hda",
-                "content_base64": base64_content
-            }
-        }
-        logger.info("Uploading HDA file")
-        success = await self.send_message(upload_message)
-        assert success
-        logger.info("HDA file uploaded")
-
-        # Upload USDZ file
-        input_file_id = "file_test_input0"
-        input_path = "../assets/cube.usdz"
-        base64_content = None
-        with open(input_path, "rb") as f:
-            file_content = f.read()
-            base64_content = base64.b64encode(file_content).decode('utf-8')
-
-        upload_message = {
-            "op": "file_upload",
-            "data": {
-                "file_id": input_file_id,
-                "content_type": "application/usdz",
-                "content_base64": base64_content
-            }
-        }
-        logger.info("Uploading USDZ file")
-        success = await self.send_message(upload_message)
-        assert success
-        logger.info("USDZ file uploaded")
-
-
-        # Cook HDA
-        test_message = {
-            "op": "cook",
-            "data": {
-                "hda_path": {
-                    "file_id": hda_file_id,
-                },
-                "definition_index": 0,
-                "format": "raw",
-                "input0": {
-                    "file_id": input_file_id,
-                },
-                "test_int": 5,
-                "test_float": 2.0,
-                "test_string": "test",
-                "test_bool": True,
-            }
-        }
-        await self.send_message(test_message)
-        logger.info("HDA cooked")
-
     async def send_message(self, 
                            message: Dict[str, Any]) -> bool:
         """Send a message to the server."""
@@ -285,30 +228,3 @@ class SceneTalkClient:
         except Exception as e:
             logger.error(f"Error uploading file: {e}")
             return False
-
-    async def cook_hda(self, hda_file_id: str, params: Dict[str, Any], input_files: Dict[str, str] = None) -> bool:
-        """Cook an HDA with parameters and input files."""
-        if input_files is None:
-            input_files = {}
-
-        # Format input files
-        files_dict = {}
-        for param_name, file_id in input_files.items():
-            files_dict[param_name] = {"file_id": file_id}
-
-        # Create cook message
-        cook_message = {
-            "op": "cook",
-            "data": {
-                "hda_path": {
-                    "file_id": hda_file_id,
-                },
-                "definition_index": 0,
-                "format": "raw",
-                **files_dict,
-                **params
-            }
-        }
-
-        # Send cook request
-        return await self.send_message(cook_message)

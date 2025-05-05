@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import FloatProperty, IntProperty, BoolProperty
-from ..update_hooks import update_float_value, update_int_value, update_bool_value, update_string_value
+from ...cook import update_float_value, update_int_value, update_bool_value, update_string_value
 
 class RocksProperties(bpy.types.PropertyGroup):
     seed: IntProperty(

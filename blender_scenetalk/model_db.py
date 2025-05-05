@@ -1,7 +1,7 @@
 import requests
 import logging
 
-logger = logging.getLogger('hda_db')
+logger = logging.getLogger('model_db')
 
 _db = None
 
