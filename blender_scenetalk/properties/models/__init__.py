@@ -31,16 +31,16 @@ def get_model_item_enum():
         ('SAGUARO', "Saguaro", "Generate saguaro cactus"),
     ]
     
-def get_model_props(hda, hda_type):
-    if hda_type == 'CRYSTALS':
-        return hda.crystals_props
-    elif hda_type == 'ROCKS':
-        return hda.rocks_props
-    elif hda_type == 'ROCKIFY':
-        return hda.rockify_props
-    elif hda_type == 'AGAVE':
-        return hda.agave_props
-    elif hda_type == 'SAGUARO':
-        return hda.saguaro_props
+def get_model_props(gen, model_type):
+    if model_type == 'CRYSTALS':
+        return gen.crystals_props
+    elif model_type == 'ROCKS':
+        return gen.rocks_props
+    elif model_type == 'ROCKIFY':
+        return gen.rockify_props
+    elif model_type == 'AGAVE':
+        return gen.agave_props
+    elif model_type == 'SAGUARO':
+        return gen.saguaro_props
     else:
         return None

@@ -1,22 +1,27 @@
-import json
+
 
 import bpy
-import logging
 from bpy.props import PointerProperty, StringProperty, BoolProperty
-from ..panels.update_hooks import recook
+
+import json
+import logging
+
+from ..build_object import create_object
+
+from ..cook import cook
 from ..async_wrap import run_async_bg
 from ..scenetalk_client import random_obj_name
 from ..scenetalk_connection import get_connection_state, get_client
-from ..hda_db import find_by_name
-from ..panels.models import get_model_props
+from ..model_db import find_by_name
+from ..properties.models import get_model_props
 
-logger = logging.getLogger("hda_object_operators")
+logger = logging.getLogger("object_operators")
 
-# Operator to add HDA to object
-class HDA_OT_AddToObject(bpy.types.Operator):
-    """Add HDA to Object"""
-    bl_idname = "hda.add_to_object"
-    bl_label = "Add HDA"
+class GEN_OT_AddToObject(bpy.types.Operator):
+    """Add generative properties to object"""
+    bl_idname = "gen.add_to_object"
+    bl_label = "Add gen properties"
+    bl_description = "Add the generative property to the object data"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -26,16 +31,15 @@ class HDA_OT_AddToObject(bpy.types.Operator):
             self.report({'ERROR'}, "No object selected")
             return {'CANCELLED'}
 
-        # Add HDA property group to object
-        obj.hda.enabled = True
-        obj.hda.status = "Not processed"
+        obj.gen.enabled = True
+        obj.gen.status = "initialized"
 
-        self.report({'INFO'}, "Added HDA to object")
+        self.report({'INFO'}, "Added to object")
         return {'FINISHED'}
 
 # Operator to create the selected model
-class HDA_OT_CreateModel(bpy.types.Operator):
-    bl_idname = "hda.create_model"
+class GEN_OT_CreateModel(bpy.types.Operator):
+    bl_idname = "gen.create_model"
     bl_label = "Create Model"
     bl_description = "Create the selected model type at the default location"
     bl_options = {'REGISTER', 'UNDO'}
@@ -53,6 +57,11 @@ class HDA_OT_CreateModel(bpy.types.Operator):
             self.report({'ERROR'}, f"Schema not found for {model_type}")
             return {'CANCELLED'}
         
+        client = get_client()
+        if not client:
+            self.report({'ERROR'}, "No client initialized")
+            return {'CANCELLED'}
+        
         obj_name = random_obj_name(model_type)
         input_objects = []
         if self.track_inputs:
@@ -60,62 +69,36 @@ class HDA_OT_CreateModel(bpy.types.Operator):
             if len(context.selected_objects) == 0:
                 self.report({'ERROR'}, "No input objects selected")
                 return {'CANCELLED'}
-            placeholder_mesh = bpy.data.meshes.new(f"{obj_name}_mesh")
-            obj = bpy.data.objects.new(obj_name, placeholder_mesh)
-            bpy.context.collection.objects.link(obj)
-
-            obj["hda_type"] = model_type
             
+            # Create the placeholder object
+            obj = create_object(obj_name, model_type, schema, mesh=None)
+            
+            # Add all the inputs
             for sel in bpy.context.selected_objects:
-                input_ref = obj.hda.inputs.add()
+                input_ref = obj.gen.inputs.add()
                 input_ref.input_ref = sel
                 input_ref.input_type = "MESH"
                 input_ref.enabled = True
 
+            # Collect the object references for the 
             input_objects.extend(bpy.context.selected_objects)
-
-            # TODO: merge with upsert code
-            obj.hda.model_type = model_type
-
-            # HACK: Rotate the object so that Z is up, this is supposed to be
-            # fixed by the OCS being transmitted as a property of the prim
-            obj.rotation_euler = (1.5708, 0, 0)  # Rotate 90 degrees around the X-axis
-
-            # Store the generator schema
-            obj.hda.set_from_schema(schema)
-
-            # Object status update
-            obj.hda.status = "cooked"
-
-            # Select the object
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(True)
-
-
-        client = get_client()
-        if not client:
-            self.report({'ERROR'}, "No client initialized")
-            return {'CANCELLED'}
-        
-        # TODO: extract geometry and upload as inputs to the scene
+        else:
+            # Create the placeholder object
+            obj = create_object(obj_name, model_type, schema, mesh=None)
 
         # Extract parameters into a dictionary mapping label -> default value
         params = {param_id: param["default"]
                   for param_id, param in schema["parameters"].items()}
 
-        run_async_bg(client.send_cook(
-            model_type,
-              obj_name,
-              input_objects,
-              params))
+        cook(obj, params)
         
         return {'FINISHED'}
     
     
-class HDA_OT_InitParams(bpy.types.Operator):
-    bl_idname = "hda.init_params"
-    bl_label = "Initialize HDA Parameters"
-    bl_description = "Set up default HDA parameter values"
+class GEN_OT_InitParams(bpy.types.Operator):
+    bl_idname = "gen.init_params"
+    bl_label = "Initialize parameters"
+    bl_description = "Initialize parameters from schema"
     bl_options = {'REGISTER'}
 
     def execute(self, context):
@@ -124,21 +107,21 @@ class HDA_OT_InitParams(bpy.types.Operator):
             self.report({'ERROR'}, "No object selected")
             return {'CANCELLED'}
         
-        hda_type = obj.get('hda_type', None)
-        if not hda_type:
-            hda_type = context.scene.scenetalk_props.model_type
-            if not hda_type: 
+        model_type = obj.get('model_type', None)
+        if not model_type:
+            model_type = context.scene.scenetalk_props.model_type
+            if not model_type: 
                 self.report({'WARNING'}, "Object has no HDA or parameters")
                 return {'CANCELLED'}
-            obj['hda_type'] = hda_type
+            obj['model_type'] = model_type
         
-        schema = find_by_name(hda_type)
+        schema = find_by_name(model_type)
         if not schema:
-            self.report({'ERROR'}, f"Schema not found for {hda_type}")
+            self.report({'ERROR'}, f"Schema not found for {model_type}")
             return {'CANCELLED'}
 
-        hda = obj.hda
-        props = get_model_props(hda, hda_type)
+        gen = obj.hdgena
+        props = get_model_props(gen, model_type)
         if not props:
             return {'CANCELLED'}
         
@@ -158,54 +141,52 @@ class HDA_OT_InitParams(bpy.types.Operator):
         return {'FINISHED'}
     
 # Operator to process HDA
-class HDA_OT_Process(bpy.types.Operator):
-    """Process HDA"""
-    bl_idname = "hda.process"
-    bl_label = "Process HDA"
+class GEN_OT_Process(bpy.types.Operator):
+    """Process the generative model"""
+    bl_idname = "gen.process"
+    bl_label = "Process the generative model"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        # Only enable if connected and object has HDA
+        # Only enable if connected and object has model_type and connected to backend
         obj = context.object
         is_connected = get_connection_state() == "connected"
-        return obj.get("hda_type", None) and is_connected
+        return obj.get("model_type", None) and is_connected
 
     def execute(self, context):
         obj = context.object
-        hda = obj.hda
-        hda_type = obj.get("hda_type", None)
-        assert hda_type is not None
-        props = get_model_props(hda, hda_type)
+        gen = obj.gen
+        model_type = obj.get("model_type", None)
+        assert model_type is not None
+        props = get_model_props(gen, model_type)
         assert props is not None
         params = props.get_params()
-        recook(obj, params)
+        cook(obj, params)
         return {'FINISHED'}
 
 
 # Operator to add input objects
-class HDA_OT_AddInput(bpy.types.Operator):
-    bl_idname = "hda.add_input"
+class GEN_OT_AddInput(bpy.types.Operator):
+    bl_idname = "gen.add_input"
     bl_label = "Add Input Object"
     bl_description = "Add selected object as an input"
     bl_options = {'REGISTER', 'UNDO'}
-    
-    input: PointerProperty(type=bpy.types.Object)
 
     def execute(self, context):
         if context.object is None:
             self.report({'WARNING'}, "No object selected")
             return {'CANCELLED'}
         
-        input = context.object.hda.inputs.add()
+        input = context.object.gen.inputs.add()
         input.input_ref = getattr(self, 'input', None)
         input.input_type = 'MESH'
         input.enabled = input.input_ref is not None
                 
         return {'FINISHED'}
 
-class HDA_OT_AddInputInteractive(bpy.types.Operator):
-    bl_idname = "hda.add_input_interactive"
+class GEN_OT_AddInputInteractive(bpy.types.Operator):
+    bl_idname = "gen.add_input_interactive"
     bl_label = "Add Inputs"
     bl_description = "Add Input Objects Interactively"
     bl_options = {'REGISTER', 'UNDO'}
@@ -251,32 +232,32 @@ class HDA_OT_AddInputInteractive(bpy.types.Operator):
 
 
 # Operator to remove input objects
-class HDA_OT_RemoveInput(bpy.types.Operator):
-    bl_idname = "hda.remove_input"
+class GEN_OT_RemoveInput(bpy.types.Operator):
+    bl_idname = "gen.remove_input"
     bl_label = "Remove PCG Input"
     bl_description = "Remove selected PCG input"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        hda_type = context.object.get("hda_type", None)
-        if not hda_type:
-            self.report({'WARNING'}, "Object has no HDA")
+        model_type = context.object.get("model_type", None)
+        if not model_type:
+            self.report({'WARNING'}, "Object has no `model_type` property")
             return {'CANCELLED'}
         
-        last_index = len(context.object.hda.inputs) - 1
-        context.object.hda.inputs.remove(last_index)
+        last_index = len(context.object.gen.inputs) - 1
+        context.object.gen.inputs.remove(last_index)
             
         return {'FINISHED'}
 
 
 classes = (
-    HDA_OT_AddToObject,
-    HDA_OT_CreateModel,
-    HDA_OT_Process,
-    HDA_OT_InitParams,
-    HDA_OT_AddInput,
-    HDA_OT_AddInputInteractive,
-    HDA_OT_RemoveInput)
+    GEN_OT_AddToObject,
+    GEN_OT_CreateModel,
+    GEN_OT_Process,
+    GEN_OT_InitParams,
+    GEN_OT_AddInput,
+    GEN_OT_AddInputInteractive,
+    GEN_OT_RemoveInput)
 
 def register():
     for cls in classes:

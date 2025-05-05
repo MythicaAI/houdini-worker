@@ -7,7 +7,7 @@ import bmesh
 import logging
 from mathutils import Vector
 
-from .hda_db import find_by_name
+from .model_db import find_by_name
 
 logger = logging.getLogger("build_object")
 
@@ -25,22 +25,19 @@ PROP_TYPE_MAP = {
 def get_object_by_name(name):
     return bpy.data.objects.get(name)
 
-def upsert_object_data(model_type, name, inputs, geom_data, schema):
+def upsert_object_data(model_type, name, input_objects, geom_data, schema):
     # Create a new mesh and bmesh
     obj = get_object_by_name(name)
-    is_update = False
+    prev_mesh = None
     if obj:
         # Remove existing meshes from the object
         if obj.type == 'MESH':
-            old_mesh = obj.data
-        is_update = True
+            prev_mesh = obj.data
     else:
-        # create a new object
-        obj = bpy.data.objects.new(name, None)
+        obj = create_object(name, model_type, schema, mesh=None)
     
     # TODO: grab from the current schema
-    hda_type = model_type
-    mesh = bpy.data.meshes.new(f"{hda_type.upper()}_{name}_mesh")
+    mesh = bpy.data.meshes.new(f"{model_type.upper()}_{name}_mesh")
     bm = bmesh.new()
     
     # Extract data from the geometry
@@ -83,29 +80,17 @@ def upsert_object_data(model_type, name, inputs, geom_data, schema):
     bm.to_mesh(mesh)
     bm.free()
     
-    # Create object from mesh
-    if is_update:
-        obj.data = mesh
-        bpy.data.meshes.remove(old_mesh)
-    else:
-        obj = bpy.data.objects.new(name, mesh)
-    
-        # Link object to scene collection
-        bpy.context.collection.objects.link(obj)
-
-         # HACK: Rotate the object so that Z is up, this is supposed to be
-        # fixed by the OCS being transmitted as a property of the prim
-        obj.rotation_euler = (1.5708, 0, 0)  # Rotate 90 degrees around the X-axis
-
-    # Mark as an HDA
-    obj["hda_type"] = hda_type
-    obj["hda_inputs"] = str(inputs)
+    obj.data = mesh
+    if prev_mesh:
+        bpy.data.meshes.remove(prev_mesh)
+        
+    obj["model_type"] = model_type
 
     # Store the generator schema
-    obj.hda.set_from_schema(schema)
+    obj.gen.set_from_schema(schema)
 
     # Object status update
-    obj.hda.status = "cooked"
+    obj.gen.status = "cooked"
 
     # Select the object
     bpy.context.view_layer.objects.active = obj
@@ -114,30 +99,44 @@ def upsert_object_data(model_type, name, inputs, geom_data, schema):
    
     logger.info("[%s%s] %s %s verts", 
                     model_type,
-                    '+' if not is_update else '',
+                    '+' if not prev_mesh else '',
                     name, 
                     total_verts)
 
     obj.update_tag()
 
+    # TODO: optionally hide input objects
+
     return obj
 
+def create_object(obj_name, model_type, schema, mesh):
+    if mesh is None:
+        mesh = bpy.data.meshes.new(f"{obj_name}_mesh")
 
-def update_object(context):
-    """Callback for when a parameter is changed"""
-    obj = context.object
-    if obj and obj.get('hda_properties', False):
-        # Call Houdini to rebuild the object with new parameters
-        print(f"Updating {obj.name} with new parameters")
-        
-        # Get all parameters as a dictionary to pass to Houdini
-        params = {}
-        for prop_name in obj.get('crystal_param_names', []):
-            if hasattr(obj.hda_properties, prop_name):
-                params[prop_name] = getattr(obj.hda_properties, prop_name)
-        
-        logger.info("updating %s with %s", obj.name, params)
-        
+    obj = bpy.data.objects.new(obj_name, mesh)
+    
+    obj["model_type"] = model_type
+
+    obj.gen.model_type = model_type
+
+    # Store the generator schema
+    obj.gen.set_from_schema(schema)
+
+    # Link object to scene collection
+    bpy.context.collection.objects.link(obj)
+
+    # HACK: Rotate the object so that Z is up, this is supposed to be
+    # fixed by the OCS being transmitted as a property of the prim
+    obj.rotation_euler = (1.5708, 0, 0)  # Rotate 90 degrees around the X-axis
+
+    # Object status update
+    obj.gen.status = "initialized"
+
+    # Select the object
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    return obj
+
 
 # Determine property type based on value and step
 def get_prop_type(param_data):
@@ -147,7 +146,6 @@ def get_prop_type(param_data):
             return "int"
         return "float"
     return None
-
 
 
 # Create properties dynamically from schema
@@ -270,16 +268,3 @@ def populate_properties(cls, params):
                 default=param_data.get("default", "")
             ))
 
-# This function will be called when a parameter changes
-def parameter_update_callback(self, context):
-    obj = context.object
-    # Collect all parameters for this object
-    params = {}
-    if hasattr(obj, "custom_parameters"):
-        for param_name in obj.custom_parameters.keys():
-            params[param_name] = obj.custom_parameters[param_name]
-    
-    # Here you would call your backend to regenerate geometry
-    print(f"Parameters updated for {obj.name}: {params}")
-    # Example of how you might call your backend
-    # regenerate_geometry(obj.name, params)

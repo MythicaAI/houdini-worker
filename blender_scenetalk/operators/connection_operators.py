@@ -1,7 +1,7 @@
 import bpy
 from bpy.props import StringProperty, BoolProperty
 
-from ..scenetalk_connection import connect_to_server, disconnect_from_server, get_connection_state
+from ..scenetalk_connection import connect_to_server, disconnect_from_server, get_client, get_connection_state
 
 
 # Connect operator
@@ -11,14 +11,35 @@ class SCENETALK_OT_Connect(bpy.types.Operator):
     bl_label = "Connect to SceneTalk Endpoint"
     bl_options = {'REGISTER'}
     
-    def execute(self, context):
-        endpoint = context.scene.scenetalk_props.endpoint
-        if connect_to_server(endpoint):
-            self.report({'INFO'}, f"Connecting to SceneTalk server at {endpoint}")
-            return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Connection already in progress")
+    timer = None
+        
+    def modal(self, context, event):
+        if event.type == 'TIMER':
+            client = get_client()
+            if client is None:
+                return {'CANCELLED'}
+            
+            state = client.connection_state
+            if state == "connecting":
+                return {'RUNNING_MODAL'}
+            elif state == "connected":
+                self.report({'INFO'}, "Connected")
+                return {'FINISHED'}
+            elif state == "error" or state == "disconnected":
+                self.report({'ERROR'}, f"{client.last_error}")
+                return {'CANCELLED'}
+            self.report({'ERROR'}, f"Unknown client state: {state}")
             return {'CANCELLED'}
+        return {'PASS_THROUGH'}  # Let other events through
+    
+    def invoke(self, context, event):
+        self.timer = context.window_manager.event_timer_add(0.1, window=context.window)
+        context.window_manager.modal_handler_add(self)
+
+        endpoint = context.scene.scenetalk_props.endpoint
+        connect_to_server(endpoint)
+        self.report({'INFO'}, f"Connecting to {endpoint}")
+        return {'RUNNING_MODAL'}    
 
 # Disconnect operator
 class SCENETALK_OT_Disconnect(bpy.types.Operator):
@@ -35,44 +56,10 @@ class SCENETALK_OT_Disconnect(bpy.types.Operator):
             self.report({'WARNING'}, "Disconnection failed")
             return {'CANCELLED'}
 
-# Reconnect operator
-class SCENETALK_OT_Reconnect(bpy.types.Operator):
-    """Reconnect to SceneTalk Server"""
-    bl_idname = "scenetalk.reconnect"
-    bl_label = "Reconnect to SceneTalk Endpoint"
-    bl_options = {'REGISTER'}
-    
-    enabled: BoolProperty(default=False)
-
-    def execute(self, context):
-        endpoint = context.scene.scenetalk_props.endpoint
-
-        # First disconnect if connected
-        if get_connection_state() == "connected":
-            disconnect_from_server()
-            
-            # Wait a short time before reconnecting
-            def delayed_connect():
-                connect_to_server(endpoint)
-                return None
-                
-            bpy.app.timers.register(delayed_connect, first_interval=1.0)
-            
-            self.report({'INFO'}, f"Reconnecting to SceneTalk server at {endpoint}")
-            return {'FINISHED'}
-        else:
-            # Just connect directly
-            if connect_to_server(endpoint):
-                self.report({'INFO'}, f"Connecting to SceneTalk server at {endpoint}")
-                return {'FINISHED'}
-            else:
-                self.report({'WARNING'}, "Connection already in progress")
-                return {'CANCELLED'}
             
 classes = (
     SCENETALK_OT_Connect,
     SCENETALK_OT_Disconnect,
-    SCENETALK_OT_Reconnect
 )
 
 def register():
