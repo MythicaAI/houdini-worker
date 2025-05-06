@@ -43,6 +43,7 @@ def setup_logging(log_dir=None):
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
+        log.info("Logging to %s", log_file)
 
 def parse_package_entrypoint(package_string):
     """
