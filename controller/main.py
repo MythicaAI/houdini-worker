@@ -2,6 +2,8 @@
 import asyncio
 import json
 import re
+import os
+import datetime
 from tempfile import TemporaryDirectory
 
 import httpx
@@ -18,6 +20,29 @@ from package_resolver import package_resolver
 
 log = logging.getLogger(__name__)
 temp = TemporaryDirectory()
+
+def setup_logging(log_dir=None):
+    """Configure logging to both console and file if log_dir is provided."""
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(log_dir, f"scenetalk_{timestamp}.log")
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
 
 def parse_package_entrypoint(package_string):
     """
@@ -121,11 +146,19 @@ def parse_args():
         default=None,
         help="Take an optional public endpoint to advertise this server."
     )
+    parser.add_argument(
+        "--logdir",
+        required=False,
+        default=None,
+        help="Directory to store log files."
+    )
     return parser.parse_args()
 
 
 async def main():
     args = parse_args()
+
+    setup_logging(args.logdir)
 
     exe_path = "./houdini_worker"
     admin_ws_endpoint = f"ws://localhost:{args.adminport}"
