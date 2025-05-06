@@ -38,6 +38,30 @@ void StreamWriter::error(const std::string& message)
     writeToStream(m_client_id, "log", build_log_message("error", message));
 }
 
+void StreamWriter::admin_info(const std::string& message)
+{
+    if (m_admin_id != INVALID_CONNECTION_ID)
+    {
+        writeToStream(m_admin_id, "log", build_log_message("info", message));
+    }
+}
+
+void StreamWriter::admin_warning(const std::string& message)
+{
+    if (m_admin_id != INVALID_CONNECTION_ID)
+    {
+        writeToStream(m_admin_id, "log", build_log_message("warning", message));
+    }
+}
+
+void StreamWriter::admin_error(const std::string& message)
+{
+    if (m_admin_id != INVALID_CONNECTION_ID)
+    {
+        writeToStream(m_admin_id, "log", build_log_message("error", message));
+    }
+}
+
 void StreamWriter::file(const std::string& file_name, const std::vector<char>& file_data)
 {
     rmt_ScopedCPUSample(WriteFile, 0);
