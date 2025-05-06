@@ -35,11 +35,23 @@ async def receive_messages(websocket, resolve_queue):
                 log.error("no 'op' in message")
                 continue
 
-            if op == "resolve-for-cook":
+            if op == "log":
+                log_data = data.get("data")
+                level = log_data.get("level")
+                text = log_data.get("text")
+                if level == "info":
+                    log.info(text)
+                elif level == "warning":
+                    log.warning(text)
+                elif level == "error":
+                    log.error(text)
+                else:
+                    log.error("Unknown log level: %s for message: %s", level, text)
+            elif op == "resolve-for-cook":
                 validated_request = ResolveForCookRequest(**data)
                 await resolve_queue.put(validated_request)
                 log.info("enqueued resolve-for-cook request: %s", validated_request)
-            if op == "file_resolve":
+            elif op == "file_resolve":
                 validated_request = ResolveFileRequest(**data)
                 await resolve_queue.put(AsyncWorkRequest(validated_request))
                 log.info("enqueued file_resolve request: %s", validated_request)

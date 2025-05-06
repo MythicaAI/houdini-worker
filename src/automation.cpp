@@ -17,6 +17,7 @@
 #include <MOT/MOT_Director.h>
 #include <PY/PY_Python.h>
 #include <UT/UT_Error.h>
+#include <UT/UT_JSONValue.h>
 #include <UT/UT_Ramp.h>
 #include <algorithm>
 #include <filesystem>
@@ -864,6 +865,20 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
     return true;
 }
 
+void log_cook_request(const CookRequest& request, StreamWriter& writer, double duration_ms)
+{
+    util::log() << "Processed cook request in " << std::fixed << std::setprecision(2) << duration_ms << "ms" << std::endl;
+
+    UT_JSONValue json;
+    json.setAsMap();
+    json.appendMap("event_type", UT_JSONValue("cook"));
+    json.appendMap("hda_file", UT_JSONValue(request.hda_file.file_id.c_str()));
+    json.appendMap("definition_index", UT_JSONValue(request.definition_index));
+    json.appendMap("format", UT_JSONValue((int64)request.format));
+    json.appendMap("cook_time_ms", UT_JSONValue(duration_ms));
+    writer.admin_info(json.toString().c_str());
+}
+
 bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
 {
     rmt_ScopedCPUSample(Cook, 0);
@@ -880,8 +895,8 @@ bool cook(HoudiniSession& session, const CookRequest& request, StreamWriter& wri
     bool result = cook_internal(session, request, writer);
     auto end_time = std::chrono::high_resolution_clock::now();
 
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    util::log() << "Processed cook request in " << std::fixed << std::setprecision(2) << duration.count() / 1000.0 << "ms" << std::endl;
+    double duration_ms = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count() / 1000.0;
+    log_cook_request(request, writer, duration_ms);
 
     // Cleanup
     interrupt->setEnabled(false);

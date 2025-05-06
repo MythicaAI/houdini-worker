@@ -20,9 +20,14 @@ public:
     {}
 
     void state(AutomationState state);
+
     void info(const std::string& message);
     void warning(const std::string& message);
     void error(const std::string& message);
+    void admin_info(const std::string& message);
+    void admin_warning(const std::string& message);
+    void admin_error(const std::string& message);
+
     void file(const std::string& file_name, const std::vector<char>& file_data);
     void geometry(const Geometry& geometry);
     void file_resolve(const std::string& file_id);
