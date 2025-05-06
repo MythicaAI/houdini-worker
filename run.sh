@@ -12,12 +12,13 @@ NUM_WORKERS=${NUM_WORKERS:-1}
 BASE_CLIENT_PORT=8765
 BASE_ADMIN_PORT=9876
 WORKER_PIDS=()
+LOG_DIR=${LOG_DIR:-./logs}
 
 # Start multiple workers
 for ((i=0; i<$NUM_WORKERS; i++)); do
     CLIENT_PORT=$((BASE_CLIENT_PORT + i))
     ADMIN_PORT=$((BASE_ADMIN_PORT + i))
-    . /run/controller/.venv/bin/activate && python /run/controller/main.py --worker /run/houdini_worker --clientport $CLIENT_PORT --adminport $ADMIN_PORT --endpoint $MYTHICA_ENDPOINT &
+    . /run/controller/.venv/bin/activate && python /run/controller/main.py --worker /run/houdini_worker --clientport $CLIENT_PORT --adminport $ADMIN_PORT --endpoint $MYTHICA_ENDPOINT --logdir $LOG_DIR &
     WORKER_PIDS+=($!)
     echo "Started worker on ports client=$CLIENT_PORT admin=$ADMIN_PORT with PID ${WORKER_PIDS[-1]}"
 done
