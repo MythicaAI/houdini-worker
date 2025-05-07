@@ -1,6 +1,7 @@
 #include "Remotery.h"
 #include "util.h"
 #include "websocket.h"
+#include <UT/UT_JSONValue.h>
 
 #include <iostream>
 #include <mutex>
@@ -18,6 +19,24 @@ struct WebSocketThreadState
     std::map<int, struct mg_connection*> connection_map;
     MessageQueue& m_queue;
 };
+
+bool peek_op(const std::string& message, std::string& op)
+{
+    UT_JSONValue root;
+    if (!root.parseValue(message) || !root.isMap())
+    {
+        return false;
+    }
+
+    const UT_JSONValue* op_value = root.get("op");
+    if (!op_value || op_value->getType() != UT_JSONValue::JSON_STRING)
+    {
+        return false;
+    }
+
+    op = op_value->getString().toStdString();
+    return true;
+}
 
 template<bool is_admin>
 static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
@@ -47,6 +66,14 @@ static void fn_ws(struct mg_connection* c, int ev, void* ev_data)
 
         std::string message(wm->data.buf, wm->data.len);
         util::log() << "Received message from connection " << c->id << ": " << (message.length() > 100 ? message.substr(0, 97) + "..." : message) << std::endl;
+
+        std::string op;
+        if (peek_op(message, op)) {
+            if (op == "ping_pong") {
+                mg_ws_send(c, wm->data.buf, wm->data.len, WEBSOCKET_OP_TEXT);
+                return;
+            }
+        }
 
         StreamMessage msg;
         msg.connection_id = c->id;
