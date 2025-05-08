@@ -41,6 +41,11 @@ static bool can_incremental_cook(const CookRequest& previous, const CookRequest&
         return false;
     }
 
+    if (previous.dependencies != current.dependencies)
+    {
+        return false;
+    }
+
     if (previous.inputs != current.inputs)
     {
         return false;
@@ -55,16 +60,15 @@ static bool can_incremental_cook(const CookRequest& previous, const CookRequest&
     return std::equal(previous.parameters.begin(), previous.parameters.end(), current.parameters.begin(), same_key);
 }
 
-static std::string install_library(MOT_Director* director, const std::string& hda_file_path, int definition_index, StreamWriter& writer)
+static std::string install_library(HoudiniSession& session, const std::string& hda_file_path, int definition_index, StreamWriter& writer)
 {
     // Load the library
-    OP_OTLManager& manager = director->getOTLManager();
+    OP_OTLManager& manager = session.m_director->getOTLManager();
 
     int library_index = manager.findLibrary(hda_file_path.c_str());
     if (library_index < 0)
     {
         manager.installLibrary(hda_file_path.c_str());
-
         library_index = manager.findLibrary(hda_file_path.c_str());
         if (library_index < 0)
         {
@@ -72,6 +76,7 @@ static std::string install_library(MOT_Director* director, const std::string& hd
             return "";
         }
     }
+    session.m_installed_libraries.push_back(hda_file_path);
 
     // Get the actual library from the index
     OP_OTLLibrary* library = manager.getLibrary(library_index);
@@ -749,11 +754,11 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
     return true;
 }
 
-void cleanup_session(MOT_Director* director)
+void cleanup_session(HoudiniSession& session)
 {
     rmt_ScopedCPUSample(CleanupSession, 0);
 
-    OP_Network* obj = (OP_Network*)director->findNode("/obj");
+    OP_Network* obj = (OP_Network*)session.m_director->findNode("/obj");
     if (obj)
     {
         OP_Network* geo = (OP_Network*)obj->findNode("geo");
@@ -765,6 +770,15 @@ void cleanup_session(MOT_Director* director)
             }
         }
     }
+
+    OP_OTLManager& manager = session.m_director->getOTLManager();
+    for (const auto& installed_library : session.m_installed_libraries)
+    {
+        manager.removeLibrary(installed_library.c_str(), nullptr, true);
+    }
+
+    session.m_installed_libraries.clear();
+    session.m_state = CookRequest();
 }
 
 bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWriter& writer)
@@ -784,11 +798,10 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
 
         if (!node)
         {
-            cleanup_session(session.m_director);
-            session.m_state = CookRequest();
+            cleanup_session(session);
 
             // Install the library
-            std::string node_type = install_library(session.m_director, request.hda_file.file_path, request.definition_index, writer);
+            std::string node_type = install_library(session, request.hda_file.file_path, request.definition_index, writer);
             if (node_type.empty())
             {
                 return false;
@@ -797,7 +810,7 @@ bool cook_internal(HoudiniSession& session, const CookRequest& request, StreamWr
             // Install the dependencies
             for (const auto& dependency : request.dependencies)
             {
-                std::string dependency_node_type = install_library(session.m_director, dependency.file_path, 0, writer);
+                std::string dependency_node_type = install_library(session, dependency.file_path, 0, writer);
                 if (dependency_node_type.empty())
                 {
                     return false;
