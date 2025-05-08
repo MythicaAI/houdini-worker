@@ -11,6 +11,7 @@ struct HoudiniSession
     ~HoudiniSession();
 
     MOT_Director* m_director;
+    std::vector<std::string> m_installed_libraries;
     CookRequest m_state;
 };
 
