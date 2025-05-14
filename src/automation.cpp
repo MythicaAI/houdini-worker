@@ -565,10 +565,8 @@ bool export_geometry_with_format(MOT_Director* director, SOP_Node* sop, const GU
         export_node->setInt("exportkind", 0, 0.0f, 0);
         export_node->setInt("convertunits", 0, 0.0f, 1);
 
-        if (gdp->findAttribute(GA_ATTRIB_PRIMITIVE, GA_SCOPE_PUBLIC, "path") != nullptr)
-        {
-            export_node->setInt("buildfrompath", 0, 0.0f, 1);
-        }
+        bool build_from_path = gdp->findAttribute(GA_ATTRIB_PRIMITIVE, GA_SCOPE_PUBLIC, "path") != nullptr;
+        export_node->setInt("buildfrompath", 0, 0.0f, build_from_path ? 1 : 0);
     }
     else if (format == EOutputFormat::GLB)
     {
