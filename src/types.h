@@ -18,6 +18,7 @@ struct Geometry
     std::vector<float> colors;
     std::vector<int> indices;
 };
+using GeometrySet = std::map<std::string, Geometry>;
 
 struct FileParameter
 {

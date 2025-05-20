@@ -73,65 +73,79 @@ void StreamWriter::file(const std::string& file_name, const std::vector<char>& f
     writeToStream(m_client_id, "file", "{\"file_name\":\"" + file_name + "\", \"content_base64\":\"" + encoded + "\"}");
 }
 
-void StreamWriter::geometry(const Geometry& geometry)
+void StreamWriter::geometry(const GeometrySet& geometry_set)
 {
     rmt_ScopedCPUSample(WriteGeometry, 0);
 
-    std::string json = "{\"points\":[";
-    for (size_t i = 0; i < geometry.points.size(); i++)
+    std::string json = "{";
+    
+    bool first_mesh = true;
+    for (const auto& [name, geometry] : geometry_set)
     {
-        json += std::to_string(geometry.points[i]);
-        if (i < geometry.points.size() - 1)
+        if (!first_mesh)
         {
             json += ",";
         }
-    }
-    if (geometry.normals.size() > 0)
-    {
-        json += "],\"normals\":[";
-        for (size_t i = 0; i < geometry.normals.size(); i++)
+        first_mesh = false;
+        
+        json += "\"" + name + "\":{\"points\":[";
+        for (size_t i = 0; i < geometry.points.size(); i++)
         {
-            json += std::to_string(geometry.normals[i]);
-            if (i < geometry.normals.size() - 1)
+            json += std::to_string(geometry.points[i]);
+            if (i < geometry.points.size() - 1)
             {
                 json += ",";
             }
         }
-    }
-    if (geometry.uvs.size() > 0)
-    {
-        json += "],\"uvs\":[";
-        for (size_t i = 0; i < geometry.uvs.size(); i++)
+        if (geometry.normals.size() > 0)
         {
-            json += std::to_string(geometry.uvs[i]);
-            if (i < geometry.uvs.size() - 1)
+            json += "],\"normals\":[";
+            for (size_t i = 0; i < geometry.normals.size(); i++)
+            {
+                json += std::to_string(geometry.normals[i]);
+                if (i < geometry.normals.size() - 1)
+                {
+                    json += ",";
+                }
+            }
+        }
+        if (geometry.uvs.size() > 0)
+        {
+            json += "],\"uvs\":[";
+            for (size_t i = 0; i < geometry.uvs.size(); i++)
+            {
+                json += std::to_string(geometry.uvs[i]);
+                if (i < geometry.uvs.size() - 1)
+                {
+                    json += ",";
+                }
+            }
+        }
+        if (geometry.colors.size() > 0)
+        {
+            json += "],\"colors\":[";
+            for (size_t i = 0; i < geometry.colors.size(); i++)
+            {
+                json += std::to_string(geometry.colors[i]);
+                if (i < geometry.colors.size() - 1)
+                {
+                    json += ",";
+                }
+            }
+        }
+        json += "],\"indices\":[";
+        for (size_t i = 0; i < geometry.indices.size(); i++)
+        {
+            json += std::to_string(geometry.indices[i]);
+            if (i < geometry.indices.size() - 1)
             {
                 json += ",";
             }
         }
+        json += "]}";
     }
-    if (geometry.colors.size() > 0)
-    {
-        json += "],\"colors\":[";
-        for (size_t i = 0; i < geometry.colors.size(); i++)
-        {
-            json += std::to_string(geometry.colors[i]);
-            if (i < geometry.colors.size() - 1)
-            {
-                json += ",";
-            }
-        }
-    }
-    json += "],\"indices\":[";
-    for (size_t i = 0; i < geometry.indices.size(); i++)
-    {
-        json += std::to_string(geometry.indices[i]);
-        if (i < geometry.indices.size() - 1)
-        {
-            json += ",";
-        }
-    }
-    json += "]}";
+    
+    json += "}";
 
     writeToStream(m_client_id, "geometry", json);
 }

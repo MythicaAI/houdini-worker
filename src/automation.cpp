@@ -355,7 +355,7 @@ static void set_parameters(OP_Node* node, const ParameterSet& parameters, Stream
     }
 }
 
-bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& writer)
+bool export_geometry_raw(const GU_Detail* gdp, GeometrySet& geom_set, StreamWriter& writer, const char* outer_path = nullptr)
 {
     rmt_ScopedCPUSample(ExportGeometryRaw, 0);
 
@@ -376,9 +376,25 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
     GA_ROHandleV3 Cd_V_handle(gdp, GA_ATTRIB_VERTEX, "Cd");
     GA_ROHandleV3 Cd_PR_handle(gdp, GA_ATTRIB_PRIMITIVE, "Cd");
 
+    GA_ROHandleS path_handle(gdp, GA_ATTRIB_PRIMITIVE, "path"); 
+
+    // Process all primitives, grouping by path attribute
     const GEO_Primitive* prim;
     GA_FOR_ALL_PRIMITIVES(gdp, prim)
     {
+        std::string path;
+        if (path_handle.isValid())
+        {
+            path = path_handle.get(prim->getMapOffset());
+
+            // Get clean mesh name from raw path "op:meshname/meshname_LOD0"
+            size_t lastSlash = path.find_last_of('/');
+            if (lastSlash != std::string::npos && lastSlash < path.length() - 1)
+            {
+                path = path.substr(lastSlash + 1);
+            }
+        }
+
         if (prim->getTypeId() == GA_PRIMPOLY)
         {
             GA_Size num_verts = prim->getVertexCount();
@@ -387,6 +403,18 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
                 continue;
             }
 
+            const char* submesh_name = "default";
+            if (!path.empty())
+            {
+                submesh_name = path.c_str();
+            }
+            else if (outer_path)
+            {
+                submesh_name = outer_path;
+            }
+
+            Geometry& geom = geom_set[submesh_name];
+            
             int base_index = geom.points.size() / 3;
             assert(geom.points.size() % 3 == 0);
 
@@ -478,7 +506,7 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
                 continue;
             }
 
-            export_geometry_raw(&unpacked_gdp, geom, writer);
+            export_geometry_raw(&unpacked_gdp, geom_set, writer, path.empty() ? nullptr : path.c_str());
         }
         else
         {
@@ -486,7 +514,7 @@ bool export_geometry_raw(const GU_Detail* gdp, Geometry& geom, StreamWriter& wri
         }
     }
 
-    if (geom.points.size() == 0)
+    if (geom_set.empty())
     {
         writer.error("Geometry contains no primitives");
         return false;
@@ -690,14 +718,14 @@ bool export_geometry(MOT_Director* director, EOutputFormat format, OP_Node* node
 
     if (format == EOutputFormat::RAW)
     {
-        Geometry geo;
-        if (!export_geometry_raw(gdp, geo, writer))
+        GeometrySet geom_set;
+        if (!export_geometry_raw(gdp, geom_set, writer))
         {
             writer.error("Failed to export raw geometry");
             return false;
         }
 
-        writer.geometry(geo);
+        writer.geometry(geom_set);
     }
     else if (format == EOutputFormat::OBJ)
     {
