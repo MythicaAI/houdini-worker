@@ -1,9 +1,10 @@
 #pragma once
 
+#include "types.h"
+
 #include <string>
 #include <vector>
 
-struct Geometry;
 class WebSocket;
 
 enum class AutomationState
@@ -29,7 +30,7 @@ public:
     void admin_error(const std::string& message);
 
     void file(const std::string& file_name, const std::vector<char>& file_data);
-    void geometry(const Geometry& geometry);
+    void geometry(const GeometrySet& geometry_set);
     void file_resolve(const std::string& file_id);
 
 private:
