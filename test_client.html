@@ -299,7 +299,7 @@
     }
   ];
 
-  const SCHEMA_INDEX = 2;
+  const SCHEMA_INDEX = 0;
 
   // ================================================
   // Demo Materials
@@ -754,9 +754,12 @@
     }
 
     if (data.op === "geometry") {
-      const mesh = data.data;   // get the mesh from the payload
-      if (mesh.points && mesh.indices) {
-        createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs, mesh.colors);
+      const meshes = data.data;
+      if (Object.keys(meshes).length > 0) {
+        const mesh = Object.values(meshes)[0];
+        if (mesh.points && mesh.indices) {
+          createMeshFromData(mesh.points, mesh.indices, mesh.normals, mesh.uvs, mesh.colors);
+        }
       }
     }
 
